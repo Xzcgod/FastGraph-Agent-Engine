@@ -1,0 +1,33 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  docker-build-test:
+    name: Test Docker Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Copy env template for build
+        run: cp .env.example .env.development
+
+      - name: Test Docker Build
+        # 我们仅在此测试镜像是否能成功构建，确保代码依赖和 Dockerfile 没有错误
+        run: |
+          docker build \
+            --build-arg APP_ENV=development \
+            -t fastapi-langgraph-agent:test .
+
+      - name: Verify Application Initialization
+        # 简单检查环境是否有语法错误
+        run: |
+          docker run --rm -e APP_ENV=development --env-file .env.development fastapi-langgraph-agent:test python -c "from app.core.config import settings; print('Config loaded successfully')"

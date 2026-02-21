@@ -1,0 +1,41 @@
+Python-generated files
+
+pycache/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+*.jsonl
+
+Virtual environments
+
+.venv
+venv/
+
+Environment variables
+
+.env
+.env.development
+.env.staging
+.env.production
+.env.local
+
+IDE & Editor settings
+
+.vscode/
+.cursor/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+Misc & Personal files
+
+*.ipynb
+
+
+Reports & Uploads
+
+evals/reports/
+uploads/
