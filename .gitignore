@@ -44,3 +44,7 @@ Local runtime state
 
 .runtime/
 logs/
+
+# 本地阅读用的目录级 README（不上传仓库）
+app/**/README.md
+services/**/README.md
