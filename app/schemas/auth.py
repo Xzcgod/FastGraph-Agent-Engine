@@ -52,6 +52,7 @@ class TokenResponse(BaseModel):
     access_token: str = Field(..., description="JWT 访问令牌")
     token_type: str = Field(default="bearer", description="令牌类型，固定为 bearer")
     expires_at: datetime = Field(..., description="令牌过期时间（UTC）")
+    is_admin: bool = Field(default=False, description="是否为平台管理员")
 
 
 class UserCreate(BaseModel):
@@ -124,6 +125,15 @@ class UserResponse(BaseModel):
     id: int = Field(..., description="用户唯一标识 ID")
     email: str = Field(..., description="用户邮箱地址")
     token: Token = Field(..., description="认证令牌信息，包含 access_token、token_type 和过期时间")
+    is_admin: bool = Field(default=False, description="是否为平台管理员")
+
+
+class MeResponse(BaseModel):
+    """当前登录用户信息，用于前端区分管理员与普通用户角色。"""
+
+    id: int = Field(..., description="用户唯一标识 ID")
+    email: str = Field(..., description="用户邮箱地址")
+    is_admin: bool = Field(..., description="是否为平台管理员")
 
 
 class SessionResponse(BaseModel):

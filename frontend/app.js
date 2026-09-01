@@ -2,6 +2,7 @@ const STORAGE_KEYS = {
   apiBase: "fastgraph.console.apiBase",
   userToken: "fastgraph.console.userToken",
   userEmail: "fastgraph.console.userEmail",
+  isAdmin: "fastgraph.console.isAdmin",
   activeAgentId: "fastgraph.console.activeAgentId",
   sessionAgents: "fastgraph.console.sessionAgents",
 };
@@ -10,6 +11,7 @@ const state = {
   apiBase: localStorage.getItem(STORAGE_KEYS.apiBase) || "http://127.0.0.1:8000",
   userToken: localStorage.getItem(STORAGE_KEYS.userToken) || "",
   userEmail: localStorage.getItem(STORAGE_KEYS.userEmail) || "",
+  isAdmin: localStorage.getItem(STORAGE_KEYS.isAdmin) === "1",
   view: "user",
   userAgents: [],
   activeAgentId: localStorage.getItem(STORAGE_KEYS.activeAgentId) || "",
@@ -174,7 +176,9 @@ async function handleActionClick(event) {
     closeAgentKbDropdown();
   }
   if (viewTarget) {
-    state.view = viewTarget.dataset.view;
+    const nextView = viewTarget.dataset.view;
+    if (!state.isAdmin && nextView !== "user") return;
+    state.view = nextView;
     renderActiveView();
     if (state.view === "agents") {
       await refreshAdmin();
@@ -349,6 +353,7 @@ async function handleAuthSubmit(event) {
         body: JSON.stringify({ email, password }),
       });
       state.userToken = tokenValue(payload.token);
+      state.isAdmin = Boolean(payload.is_admin);
     } else {
       const form = new URLSearchParams();
       form.set("username", email);
@@ -359,10 +364,12 @@ async function handleAuthSubmit(event) {
         body: form,
       });
       state.userToken = tokenValue(payload);
+      state.isAdmin = Boolean(payload.is_admin);
     }
     state.userEmail = email;
     localStorage.setItem(STORAGE_KEYS.userToken, state.userToken);
     localStorage.setItem(STORAGE_KEYS.userEmail, state.userEmail);
+    localStorage.setItem(STORAGE_KEYS.isAdmin, state.isAdmin ? "1" : "0");
     toast("已登录");
     await bootstrap();
   } catch (error) {
@@ -374,6 +381,8 @@ async function handleAuthSubmit(event) {
 
 async function bootstrap() {
   renderSession();
+  await refreshCurrentUser();
+  renderSession();
   await refreshUserAgents();
   await refreshSessions({ quiet: true });
   if (state.view === "agents") {
@@ -384,11 +393,31 @@ async function bootstrap() {
   }
 }
 
+async function refreshCurrentUser() {
+  if (!state.userToken) return;
+  try {
+    const me = await apiRequest("/api/v1/auth/me");
+    state.isAdmin = Boolean(me.is_admin);
+    state.userEmail = me.email || state.userEmail;
+    localStorage.setItem(STORAGE_KEYS.isAdmin, state.isAdmin ? "1" : "0");
+    localStorage.setItem(STORAGE_KEYS.userEmail, state.userEmail);
+  } catch (error) {
+    // token 可能失效，忽略并保持当前状态
+  }
+}
+
 function renderSession() {
   const loggedIn = Boolean(state.userToken);
   elements.authPanel.classList.toggle("hidden", loggedIn);
   elements.consolePanel.classList.toggle("hidden", !loggedIn);
   elements.userIdentity.textContent = state.userEmail ? `当前用户：${state.userEmail}` : "";
+  // 普通用户只显示会话页面，隐藏管理员入口
+  document.querySelectorAll('[data-view="agents"], [data-view="knowledge"]').forEach((button) => {
+    button.classList.toggle("hidden", !state.isAdmin);
+  });
+  if (!state.isAdmin && state.view !== "user") {
+    state.view = "user";
+  }
   renderActiveView();
 }
 
@@ -415,6 +444,7 @@ function saveApiBase() {
 function logout() {
   state.userToken = "";
   state.userEmail = "";
+  state.isAdmin = false;
   state.sessions = [];
   state.sessionAgents = {};
   state.activeAgentId = "";
@@ -441,6 +471,7 @@ function logout() {
   window.clearTimeout(state.documentSearchTimer);
   localStorage.removeItem(STORAGE_KEYS.userToken);
   localStorage.removeItem(STORAGE_KEYS.userEmail);
+  localStorage.removeItem(STORAGE_KEYS.isAdmin);
   localStorage.removeItem(STORAGE_KEYS.activeAgentId);
   localStorage.removeItem(STORAGE_KEYS.sessionAgents);
   renderSession();

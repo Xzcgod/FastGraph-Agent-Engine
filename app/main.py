@@ -18,7 +18,6 @@ import os
 import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
-from pathlib import Path
 from typing import (
     Any,
     Dict,
@@ -35,10 +34,7 @@ from fastapi import (
 )
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import (
-    FileResponse,
-    JSONResponse,
-)
+from fastapi.responses import JSONResponse
 from langfuse import Langfuse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -70,11 +66,6 @@ langfuse = Langfuse(
     secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
     host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
 )
-
-# 本地聊天客户端 HTML 文件的路径
-# 用于 /chat-client 端点直接返回静态页面
-CHAT_CLIENT_PATH = Path(__file__).resolve().parent.parent / "static" / "chat.html"
-
 
 # ============================================================================
 # 应用生命周期管理
@@ -204,22 +195,6 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 # ============================================================================
 # 基础端点
 # ============================================================================
-
-@app.get("/chat-client", response_class=FileResponse)
-@limiter.limit(settings.RATE_LIMIT_ENDPOINTS["root"][0])
-async def chat_client(request: Request):
-    """
-    返回本地聊天客户端静态页面。
-
-    访问 /chat-client 时会返回 static/chat.html 文件，
-    该页面是一个可直接与后端 API 交互的聊天界面。
-
-    Returns:
-        FileResponse: 聊天客户端 HTML 页面（text/html）。
-    """
-    logger.info("chat_client_called")
-    return FileResponse(CHAT_CLIENT_PATH, media_type="text/html")
-
 
 @app.get("/")
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["root"][0])

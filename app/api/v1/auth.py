@@ -26,9 +26,11 @@ from fastapi import (
 )
 from fastapi.security import OAuth2PasswordRequestForm
 
+from app.core.config import settings
 from app.core.logging import logger
 from app.models.user import User
 from app.schemas.auth import (
+    MeResponse,
     SessionResponse,
     TokenResponse,
     UserCreate,
@@ -44,6 +46,12 @@ from app.utils.sanitization import sanitize_string
 # 创建路由器实例
 # 该路由器在 api.py 中被挂载到 /auth 路径下
 router = APIRouter()
+
+
+def _is_platform_admin(user: User) -> bool:
+    """判断用户是否为平台管理员（基于邮箱白名单）。"""
+    allowed = {email.lower() for email in settings.PLATFORM_ADMIN_EMAILS}
+    return user.email.lower() in allowed
 
 
 # ============================================================================
@@ -99,6 +107,7 @@ async def register(user_in: UserCreate):
         id=user.id,
         email=user.email,
         token=token,
+        is_admin=_is_platform_admin(user),
     )
 
 
@@ -153,7 +162,26 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     return TokenResponse(
         access_token=access_token.access_token,
         token_type="bearer",
-        expires_at=access_token.expires_at
+        expires_at=access_token.expires_at,
+        is_admin=_is_platform_admin(user),
+    )
+
+
+@router.get("/me", response_model=MeResponse)
+async def get_me(user: User = Depends(get_current_user)):
+    """
+    获取当前登录用户信息。
+
+    前端登录后据此判断当前用户是管理员还是普通用户，
+    从而决定展示完整控制台（管理员）还是仅会话页面（普通用户）。
+
+    Returns:
+        MeResponse: 包含用户 ID、邮箱和平台管理员标记。
+    """
+    return MeResponse(
+        id=user.id,
+        email=user.email,
+        is_admin=_is_platform_admin(user),
     )
 
 
