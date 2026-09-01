@@ -32,7 +32,7 @@ tools/
 2. **`duckduckgo_search.py` + `tavily_search.py`** — 看搜索工具，理解无 Key 降级模式。
 3. **`memory_tools.py`** — 看长期记忆：`@tool` 装饰器，直接读写 `memory` 表。
 4. **`email_tools.py`** — 看 HITL：`prepare_email` 触发 `interrupt()` 暂停，`send_email` 走 SMTP。这是「人工审批」机制的实现。
-5. **`rag_tool.py`** — 看知识库检索：`@tool` + `InjectedState("knowledge_kb_ids")` 从图状态注入检索范围（kbIds 对 LLM 不可见），调 knowledge-service 检索。
+5. **`rag_tool.py`** — 看知识库检索：`@tool`（async）+ `InjectedState("knowledge_kb_ids")` 从图状态注入检索范围（kbIds 对 LLM 不可见），调 knowledge-service 检索。
 6. **`code_interpreter.py`** — 看代码沙盒：可选依赖，`try/except ImportError` 降级。
 
-> 关键点：`rag_tool.py` 的 `InjectedState` 参数（kbIds/topK/minScore）不会出现在 LLM 的工具 schema 里，而是由 `ToolNode` 执行时从 `GraphState` 注入——这是「按 Agent 绑定知识库 + 工具调用检索」的核心机制。
+> 关键点：`rag_tool.py` 是 async 工具，其 `InjectedState` 参数（kbIds/topK/minScore）不会出现在 LLM 的工具 schema 里，而是由 `ToolNode` 执行时从 `GraphState` 注入——这是「按 Agent 绑定知识库 + 工具调用检索」的核心机制。
