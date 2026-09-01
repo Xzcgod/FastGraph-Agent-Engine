@@ -1946,6 +1946,11 @@ async function archiveDocument(documentId) {
 }
 
 async function deleteJob(jobId) {
+  const job = state.jobs.find((item) => item.id === jobId);
+  if (job && job.status === "running") {
+    const confirmed = window.confirm("该任务状态为「运行中」，可能是进程中断导致的卡死任务。确定删除吗？");
+    if (!confirmed) return;
+  }
   await apiRequest(`/api/v1/admin/platform/knowledge-ingest-jobs/${encodeURIComponent(jobId)}`, {
     method: "DELETE",
   });
@@ -2019,7 +2024,8 @@ function jobStatusClass(value) {
 }
 
 function isTerminalJob(value) {
-  return ["completed", "partial_completed", "failed", "canceled"].includes(value);
+  // 终态任务 + running（可能卡死）任务都允许删除
+  return ["completed", "partial_completed", "failed", "canceled", "running"].includes(value);
 }
 
 function effectLabel(operation) {

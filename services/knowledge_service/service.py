@@ -1158,8 +1158,8 @@ async def delete_job(session: AsyncSession, job_id: str) -> Dict[str, Any]:
     job = await session.scalar(select(KnowledgeIngestJob).where(KnowledgeIngestJob.id == job_id))
     if not job:
         raise problem(status.HTTP_404_NOT_FOUND, "JOB_NOT_FOUND", "knowledge ingest job not found")
-    if job.status not in TERMINAL_JOB_STATUSES:
-        raise problem(status.HTTP_409_CONFLICT, "JOB_NOT_TERMINAL", "running or queued jobs cannot be deleted")
+    if job.status not in TERMINAL_JOB_STATUSES and job.status != "running":
+        raise problem(status.HTTP_409_CONFLICT, "JOB_NOT_TERMINAL", "queued jobs cannot be deleted")
     await session.execute(delete(KnowledgeIngestStep).where(KnowledgeIngestStep.job_id == job_id))
     await session.delete(job)
     await session.commit()
