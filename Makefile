@@ -2,7 +2,13 @@ install:
 	pip install uv
 	uv sync
 
-DOCKER_COMPOSE ?= docker-compose
+DOCKER_COMPOSE ?= docker compose
+
+ifeq ($(OS),Windows_NT)
+VENV_PYTHON ?= .venv/Scripts/python.exe
+else
+VENV_PYTHON ?= .venv/bin/python
+endif
 
 set-env:
 	@if [ -z "$(ENV)" ]; then \
@@ -26,7 +32,36 @@ staging:
 
 dev:
 	@echo "Starting server in development environment"
-	@bash -c "source scripts/set_env.sh development && uv run uvicorn app.main:app --reload --port 8000 --loop uvloop"
+	@$(VENV_PYTHON) scripts/dev_server.py
+
+dev-backend:
+	@echo "Starting backend control-plane on http://127.0.0.1:8000"
+	@$(VENV_PYTHON) scripts/dev_server.py
+
+dev-knowledge:
+	@echo "Starting knowledge-service on http://127.0.0.1:8010"
+	@$(VENV_PYTHON) scripts/knowledge_server.py
+
+dev-frontend:
+	@echo "Starting frontend on http://127.0.0.1:5174"
+	@$(VENV_PYTHON) scripts/frontend_server.py
+
+dev-infra:
+	@ENV_FILE=.env.development; \
+	if [ ! -f $$ENV_FILE ]; then \
+		echo "Environment file $$ENV_FILE not found. Please create it."; \
+		exit 1; \
+	fi; \
+	APP_ENV=development $(DOCKER_COMPOSE) --env-file $$ENV_FILE up -d db ollama prometheus grafana cadvisor
+
+dev-embedding:
+	@ENV_FILE=.env.development; \
+	if [ ! -f $$ENV_FILE ]; then \
+		echo "Environment file $$ENV_FILE not found. Please create it."; \
+		exit 1; \
+	fi; \
+	APP_ENV=development $(DOCKER_COMPOSE) --env-file $$ENV_FILE up -d ollama
+	@$(DOCKER_COMPOSE) --env-file .env.development exec ollama ollama pull bge-m3
 
 # Evaluation commands
 eval:
@@ -174,6 +209,11 @@ help:
 	@echo "  prod: Run server in production environment"
 	@echo "  staging: Run server in staging environment"
 	@echo "  dev: Run server in development environment"
+	@echo "  dev-backend: Run backend control-plane locally on port 8000"
+	@echo "  dev-knowledge: Run knowledge-service locally on port 8010"
+	@echo "  dev-frontend: Run static frontend locally on port 5174"
+	@echo "  dev-infra: Run Docker infra only (Postgres, Ollama, Prometheus, Grafana, cAdvisor)"
+	@echo "  dev-embedding: Start Ollama and pull the bge-m3 embedding model"
 	@echo "  eval: Run evaluation with interactive mode"
 	@echo "  eval-quick: Run evaluation with default settings"
 	@echo "  eval-no-report: Run evaluation without generating report"

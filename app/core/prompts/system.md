@@ -19,7 +19,7 @@
 - save_memory（保存记忆）：用户要求记住重要信息时使用
 - search_memory（检索记忆）：用户询问历史信息或个人偏好时使用
 - python_repl（代码执行）：需要精确计算或数据处理时使用
-- knowledge_base_search（知识库检索）：从上传的文档中查找信息
+- knowledge_base_search（知识库检索）：从平台知识库中查找信息
 # 当前用户信息
 
 User ID: {user_id}

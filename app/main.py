@@ -1,12 +1,31 @@
-"""主要入门."""
+"""
+应用主入口模块 (Main Entry Point).
 
+本模块负责：
+1. 加载环境变量和初始化外部服务（Langfuse 可观测性）。
+2. 创建和配置 FastAPI 应用实例，包括中间件、路由、异常处理器。
+3. 定义应用生命周期（启动/关闭时的日志记录）。
+4. 提供根路径、健康检查等基础端点。
+
+架构说明：
+- 使用 lifespan 异步上下文管理器管理启动/关闭逻辑。
+- 中间件按顺序添加：日志上下文 → 指标采集 → CORS 跨域。
+- API 路由通过 api_router 统一挂载到 /api/v1 前缀下。
+"""
+
+import asyncio
 import os
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
+from pathlib import Path
 from typing import (
     Any,
     Dict,
 )
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from dotenv import load_dotenv
 from fastapi import (
@@ -16,7 +35,10 @@ from fastapi import (
 )
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import (
+    FileResponse,
+    JSONResponse,
+)
 from langfuse import Langfuse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
@@ -32,29 +54,59 @@ from app.core.middleware import (
 )
 from app.services.database import database_service
 
-# Load environment variables
+# ============================================================================
+# 环境初始化
+# ============================================================================
+
+# 加载 .env 文件中的环境变量到 os.environ
+# dotenv 会按优先级查找：.env.{environment}.local > .env.{environment} > .env.local > .env
 load_dotenv()
 
-# Initialize Langfuse
+# 初始化 Langfuse 可观测性客户端
+# Langfuse 用于追踪 LLM 调用链路、记录 Token 消耗、监控性能指标
+# 如果环境变量未配置，Langfuse 会以无操作模式运行（不会崩溃）
 langfuse = Langfuse(
     public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
     secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
     host=os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
 )
 
+# 本地聊天客户端 HTML 文件的路径
+# 用于 /chat-client 端点直接返回静态页面
+CHAT_CLIENT_PATH = Path(__file__).resolve().parent.parent / "static" / "chat.html"
+
+
+# ============================================================================
+# 应用生命周期管理
+# ============================================================================
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Handle application startup and shutdown events."""
+    """
+    管理 FastAPI 应用的启动和关闭事件。
+
+    启动时（yield 之前）：记录启动日志（项目名、版本、API 前缀）。
+    关闭时（yield 之后）：记录关闭日志。
+
+    注意：数据库表的创建由 database_service 在别处负责，
+    这里仅做生命周期日志记录，保持入口简洁。
+    """
     logger.info(
         "application_startup",
         project_name=settings.PROJECT_NAME,
         version=settings.VERSION,
         api_prefix=settings.API_V1_STR,
     )
+    await asyncio.to_thread(database_service.create_db_and_tables)
+    logger.info("database_tables_ready")
+    # yield 将控制权交给 FastAPI，应用开始接受请求
     yield
     logger.info("application_shutdown")
 
+
+# ============================================================================
+# FastAPI 应用实例创建
+# ============================================================================
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -64,33 +116,49 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Set up Prometheus metrics
+# ============================================================================
+# 监控和中间件配置
+# ============================================================================
+
+# 挂载 Prometheus 指标端点 (/metrics)
+# 该端点返回所有已注册的 Counter/Histogram/Gauge 指标数据
 setup_metrics(app)
 
-# Add logging context middleware (must be added before other middleware to capture context)
+# 日志上下文中间件（必须最先添加，确保后续中间件和路由都能使用绑定的上下文字段）
+# 功能：从 JWT Token 中提取 session_id 和 user_id，绑定到 structlog 上下文
 app.add_middleware(LoggingContextMiddleware)
 
-# Add custom metrics middleware
+# 指标采集中间件
+# 功能：记录每个 HTTP 请求的耗时和状态码，写入 Prometheus 指标
 app.add_middleware(MetricsMiddleware)
 
-# Set up rate limiter exception handler
+# 限流器配置
+# 将 slowapi Limiter 实例绑定到 app.state，供路由装饰器 @limiter.limit() 使用
 app.state.limiter = limiter
+# 注册限流超限时的异常处理器（返回 429 Too Many Requests）
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
-# Add validation exception handler
+# ============================================================================
+# 异常处理器
+# ============================================================================
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Handle validation errors from request data.
+    """
+    处理请求数据校验失败（422 Unprocessable Entity）。
+
+    当请求体、查询参数、路径参数不符合 Pydantic Schema 定义时，
+    FastAPI 会抛出 RequestValidationError，由此处理器统一格式化错误响应。
 
     Args:
-        request: The request that caused the validation error
-        exc: The validation error
+        request: 触发校验失败的 HTTP 请求对象。
+        exc: 包含校验错误详情的异常对象（errors() 返回错误列表）。
 
     Returns:
-        JSONResponse: A formatted error response
+        JSONResponse: 包含 "detail" 和 "errors" 字段的 JSON 响应，状态码为 422。
     """
-    # Log the validation error
+    # 记录校验错误的详细信息（客户端IP、请求路径、具体错误内容）
     logger.error(
         "validation_error",
         client_host=request.client.host if request.client else "unknown",
@@ -98,7 +166,8 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         errors=str(exc.errors()),
     )
 
-    # Format the errors to be more user-friendly
+    # 将 Pydantic 的 loc（错误位置）格式化为更友好的字符串
+    # 例如：("body", "email") → "email"
     formatted_errors = []
     for error in exc.errors():
         loc = " -> ".join([str(loc_part) for loc_part in error["loc"] if loc_part != "body"])
@@ -110,7 +179,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 
-# Set up CORS middleware
+# ============================================================================
+# CORS 跨域配置
+# ============================================================================
+
+# CORS（跨域资源共享）中间件：允许前端（如本地开发的 React/Vue 应用）跨域访问 API
+# allow_origins: 从配置读取允许的来源域名列表
+# allow_credentials: 允许携带 Cookie 和 Authorization 头
+# allow_methods: 允许所有 HTTP 方法（GET, POST, PUT, DELETE 等）
+# allow_headers: 允许所有请求头
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -119,14 +196,45 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API router
+# 挂载 v1 版本 API 路由器，所有路由自动添加 /api/v1 前缀
+# 例如：auth_router 的 /login → /api/v1/auth/login
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+
+# ============================================================================
+# 基础端点
+# ============================================================================
+
+@app.get("/chat-client", response_class=FileResponse)
+@limiter.limit(settings.RATE_LIMIT_ENDPOINTS["root"][0])
+async def chat_client(request: Request):
+    """
+    返回本地聊天客户端静态页面。
+
+    访问 /chat-client 时会返回 static/chat.html 文件，
+    该页面是一个可直接与后端 API 交互的聊天界面。
+
+    Returns:
+        FileResponse: 聊天客户端 HTML 页面（text/html）。
+    """
+    logger.info("chat_client_called")
+    return FileResponse(CHAT_CLIENT_PATH, media_type="text/html")
 
 
 @app.get("/")
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["root"][0])
 async def root(request: Request):
-    """Root endpoint returning basic API information."""
+    """
+    根路径端点，返回 API 的基本信息。
+
+    这是访问 API 的第一个入口，常用于：
+    - 快速验证服务是否正常运行。
+    - 向开发者展示可用的文档链接（Swagger/ReDoc）。
+    - 负载均衡器的健康探测。
+
+    Returns:
+        dict: 包含项目名称、版本、状态、环境、文档链接等信息。
+    """
     logger.info("root_endpoint_called")
     return {
         "name": settings.PROJECT_NAME,
@@ -141,14 +249,25 @@ async def root(request: Request):
 @app.get("/health")
 @limiter.limit(settings.RATE_LIMIT_ENDPOINTS["health"][0])
 async def health_check(request: Request) -> Dict[str, Any]:
-    """Health check endpoint with environment-specific information.
+    """
+    健康检查端点，提供各组件的详细健康状态。
+
+    检查项：
+    - API 服务本身：始终为 "healthy"。
+    - 数据库连接：通过执行 SELECT 1 验证数据库可达性。
+
+    返回值根据数据库状态动态调整：
+    - 数据库健康 → 200 OK，status = "healthy"。
+    - 数据库不可达 → 503 Service Unavailable，status = "degraded"。
+
+    该端点可用于 Kubernetes 的 liveness/readiness probe 或负载均衡器的健康检查。
 
     Returns:
-        Dict[str, Any]: Health status information
+        JSONResponse: 包含 status、version、environment、components、timestamp 的响应。
     """
     logger.info("health_check_called")
 
-    # Check database connectivity
+    # 检查数据库连接是否正常
     db_healthy = await database_service.health_check()
 
     response = {
@@ -159,7 +278,8 @@ async def health_check(request: Request) -> Dict[str, Any]:
         "timestamp": datetime.now().isoformat(),
     }
 
-    # If DB is unhealthy, set the appropriate status code
+    # 根据数据库状态返回不同的 HTTP 状态码
+    # 健康 → 200，降级 → 503（帮助负载均衡器自动摘除不健康节点）
     status_code = status.HTTP_200_OK if db_healthy else status.HTTP_503_SERVICE_UNAVAILABLE
 
     return JSONResponse(content=response, status_code=status_code)

@@ -7,7 +7,13 @@ scrape_configs:
     metrics_path: '/metrics'
     scheme: 'http'
     static_configs:
-      - targets: ['app:8000']
+      - targets: ['host.docker.internal:8000']
+
+  - job_name: 'knowledge-service'
+    metrics_path: '/metrics'
+    scheme: 'http'
+    static_configs:
+      - targets: ['host.docker.internal:8010']
 
   - job_name: 'cadvisor'
     static_configs:

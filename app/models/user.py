@@ -1,11 +1,32 @@
-"""定义用户表的数据库结构，并处理密码安全，这个对应数据库中的'user'表格"""
+"""
+用户模型 - 定义用户(User)的数据库表结构。
+
+本模块定义了 User 类，对应数据库中的 "user" 表：
+- 存储用户邮箱（唯一索引）和 bcrypt 哈希密码。
+- 提供密码哈希和验证方法。
+- 与 Session 模型建立一对多关系。
+
+安全设计：
+    - 密码永不存储明文：使用 bcrypt 哈希 + 随机盐值。
+    - 相同密码不同用户得到不同哈希值（盐值随机）。
+    - verify_password 使用恒定时间比较，防止时序攻击。
+
+表名：user
+
+关系说明：
+    User (1) ──── (N) Session
+    一个用户可以有多个聊天会话。
+
+循环导入处理：
+    使用 TYPE_CHECKING 和文件末尾延迟导入避免循环依赖。
+"""
 
 from typing import (
     TYPE_CHECKING,
     List,
 )
 
-import bcrypt #专门用于哈希密码加密的库
+import bcrypt  # bcrypt 密码哈希库
 from sqlmodel import (
     Field,
     Relationship,
@@ -13,44 +34,79 @@ from sqlmodel import (
 
 from app.models.base import BaseModel
 
+# 仅在类型检查时导入 Session，避免运行时循环导入
 if TYPE_CHECKING:
     from app.models.session import Session
 
 
 class User(BaseModel, table=True):
     """
-    # 定义 User 类，继承自 BaseModel，并且设置 table=True 表示这是一个 SQLModel 的数据库表模型。
-    # 文档字符串说明了模型的用途和各个属性：
-    # - id: 主键，用户的唯一标识。
-    # - email: 用户的邮箱，必须唯一。
-    # - hashed_password: 经过 bcrypt 哈希加密后的密码（绝不存储明文密码）。
-    # - created_at: 用户账户创建时间（从 BaseModel 继承而来）。
-    # - sessions: 与该用户关联的所有聊天会话（一对多关系）。
+    用户表模型。
+
+    属性说明：
+        id: 自增主键，用户唯一标识。
+        email: 用户邮箱地址，建立唯一索引（不允许重复注册）。
+        hashed_password: 经过 bcrypt 哈希后的密码字符串（绝不为明文）。
+        created_at: 账户创建时间（UTC，继承自 BaseModel）。
+        sessions: 该用户拥有的所有聊天会话（一对多关系）。
     """
+
+    __tablename__ = "user"
 
     id: int = Field(default=None, primary_key=True)
     email: str = Field(unique=True, index=True)
-    hashed_password: str# 存储经过 bcrypt 哈希后的密码字符串。注意：这里直接存储哈希值，而不是明文密码。
+    hashed_password: str  # bcrypt 哈希值（含盐值），非明文密码
+
+    # 一对多关系：user.sessions 返回该用户的所有 Session 对象
+    # back_populates="user" 对应 Session 模型中的 user 属性
     sessions: List["Session"] = Relationship(back_populates="user")
 
-    # 定义与 Session 模型的一对多关系：
-    # - List["Session"] 表示该用户可以有多个会话对象。
-    # - Relationship(back_populates="user") 指定反向关系，即在 Session 模型中会有一个名为 "user" 的属性指向所属的 User 对象。
-    # 这样，通过 user.sessions 可以获取该用户的所有会话，通过 session.user 可以获取会话对应的用户。
     def verify_password(self, password: str) -> bool:
-        """用于验证用户输入的明文密码是否与存储的哈希值匹配"""
-        return bcrypt.checkpw(password.encode("utf-8"), self.hashed_password.encode("utf-8"))
+        """
+        验证用户输入的明文密码是否与存储的 bcrypt 哈希值匹配。
+
+        使用 bcrypt.checkpw 进行比较：
+        - 自动从哈希值中提取盐值。
+        - 使用恒定时间比较（防止时序攻击）。
+        - 相同密码因盐值不同会产生不同哈希值。
+
+        Args:
+            password: 用户输入的明文密码。
+
+        Returns:
+            bool: True 表示密码正确，False 表示密码错误。
+        """
+        return bcrypt.checkpw(
+            password.encode("utf-8"),
+            self.hashed_password.encode("utf-8")
+        )
 
     @staticmethod
     def hash_password(password: str) -> str:
-        """Hash a password using bcrypt."""
-        salt = bcrypt.gensalt()
-        return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
- # 静态方法：用于对明文密码进行 bcrypt 哈希加密，通常在用户注册或修改密码时调用。
-    # - bcrypt.gensalt() 生成一个随机的盐值（salt），增加哈希的强度，防止彩虹表攻击。
-    # - bcrypt.hashpw(password.encode("utf-8"), salt) 使用盐值对密码进行哈希，返回一个字节串。
-    # - 最后通过 decode("utf-8") 将字节串转换为字符串，以便存储到数据库的 hashed_password 字段。
-    # 注意：每次调用 gensalt() 都会生成不同的盐，因此即使两个用户密码相同，最终哈希值也不同，提高了安全性。
+        """
+        使用 bcrypt 对明文密码进行哈希加密。
 
-# Avoid circular imports
+        处理流程：
+        1. bcrypt.gensalt() 生成随机盐值（增加哈希强度，防止彩虹表攻击）。
+        2. bcrypt.hashpw() 使用盐值对密码进行哈希。
+        3. 将二进制结果解码为 UTF-8 字符串以便存储。
+
+        注意：每次 gensalt() 生成不同的随机盐值，
+        因此即使两个用户设置相同密码，最终存储的哈希值也完全不同。
+
+        Args:
+            password: 明文密码。
+
+        Returns:
+            str: bcrypt 哈希后的密码字符串（可直接存入数据库）。
+        """
+        salt = bcrypt.gensalt()
+        return bcrypt.hashpw(
+            password.encode("utf-8"),
+            salt
+        ).decode("utf-8")
+
+
+# 文件末尾延迟导入，避免循环依赖
+# noqa: E402 告诉 flake8 忽略此行（因为正常的 import 应该在文件顶部）
 from app.models.session import Session  # noqa: E402

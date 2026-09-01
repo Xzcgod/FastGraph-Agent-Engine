@@ -39,3 +39,8 @@ Reports & Uploads
 
 evals/reports/
 uploads/
+
+Local runtime state
+
+.runtime/
+logs/
