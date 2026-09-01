@@ -6,8 +6,6 @@
 决定检索范围；检索本身调用主后端配置好的 knowledge-service 客户端。
 """
 
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
 from typing import Annotated, List
 
 from langchain_core.tools import tool
@@ -15,23 +13,6 @@ from langgraph.prebuilt import InjectedState
 
 from app.core.logging import logger
 from app.services.knowledge_client import knowledge_service_client
-
-
-_thread_pool = ThreadPoolExecutor(max_workers=2, thread_name_prefix="rag_tool")
-
-
-def _run_async_safely(coro):
-    """在独立线程的事件循环中执行异步协程（工具是同步函数）。"""
-
-    def run():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
-
-    return _thread_pool.submit(run).result()
 
 
 async def _search(query: str, kb_ids: List[str], top_k: int, min_score: float) -> str:
@@ -64,7 +45,7 @@ async def _search(query: str, kb_ids: List[str], top_k: int, min_score: float) -
 
 
 @tool
-def knowledge_base_search(
+async def knowledge_base_search(
     query: str,
     kb_ids: Annotated[List[str], InjectedState("knowledge_kb_ids")],
     top_k: Annotated[int, InjectedState("knowledge_top_k")],
@@ -76,7 +57,7 @@ def knowledge_base_search(
     query 参数请用简洁关键词（如「OPC企业 扶持政策」），不要用完整问句，检索效果更好。
     检索范围已由平台管理员绑定到当前 Agent，无需也无法自行指定知识库。
     """
-    return _run_async_safely(_search(query, kb_ids, top_k, min_score))
+    return await _search(query, kb_ids, top_k, min_score)
 
 
 knowledge_base_tool = knowledge_base_search

@@ -1250,12 +1250,19 @@ function focusAgentKbSearch() {
 
 async function selectKnowledgeBase(kbId) {
   state.selectedKbId = kbId;
-  state.selectedKnowledgeBaseDetail = findKnowledgeBaseById(kbId) || state.selectedKnowledgeBaseDetail;
+  state.selectedKnowledgeBaseDetail = findKnowledgeBaseById(kbId) || null;
   state.searchResults = [];
+  state.documents = [];
+  state.jobs = [];
   state.documentPage = 1;
   state.jobPage = 1;
+  state.documentTotal = 0;
+  state.documentTotalPages = 0;
+  state.jobTotal = 0;
+  state.jobTotalPages = 0;
   window.clearTimeout(state.documentSearchTimer);
   renderKnowledgeBases();
+  renderKnowledgeDetail();
   await loadSelectedKnowledgeBaseDetail();
 }
 
@@ -1310,6 +1317,7 @@ async function handleKbSubmit(event) {
 
 async function loadSelectedKnowledgeBaseDetail(options = {}) {
   const kb = selectedKnowledgeBase();
+  const requestedKbId = kb?.id || "";
   if (!kb) {
     state.selectedKnowledgeBaseDetail = null;
     state.documents = [];
@@ -1322,6 +1330,8 @@ async function loadSelectedKnowledgeBaseDetail(options = {}) {
     apiRequest(`/api/v1/admin/platform/knowledge-bases/${encodeURIComponent(kb.id)}`),
     tabLoader,
   ]);
+  // 竞态保护：用户已切换到其他知识库，丢弃过期响应
+  if (state.selectedKbId !== requestedKbId) return;
   if (detailResult.status === "fulfilled") {
     state.selectedKnowledgeBaseDetail = detailResult.value;
   } else if (!state.selectedKnowledgeBaseDetail || state.selectedKnowledgeBaseDetail.id !== kb.id) {
@@ -1358,6 +1368,7 @@ async function loadSelectedKnowledgeDocuments() {
     renderKnowledgeDetail();
     return;
   }
+  const requestedKbId = kb.id;
   const includeArchived = state.includeArchived ? "true" : "false";
   const sourceType = state.documentSourceFilter === "all" ? "" : state.documentSourceFilter;
   const params = new URLSearchParams({
@@ -1370,6 +1381,7 @@ async function loadSelectedKnowledgeDocuments() {
   const payload = await apiRequest(
     `/api/v1/admin/platform/knowledge-bases/${encodeURIComponent(kb.id)}/documents?${params.toString()}`,
   );
+  if (state.selectedKbId !== requestedKbId) return;
   state.documents = payload.items || [];
   state.documentTotal = numberValue(payload.total, state.documents.length);
   state.documentPage = numberValue(payload.page, state.documentPage) || 1;
@@ -1381,7 +1393,7 @@ async function loadSelectedKnowledgeDocuments() {
   if (state.documentTotalPages && state.documentPage > state.documentTotalPages) {
     state.documentPage = state.documentTotalPages;
   }
-  renderKnowledgeDetail();
+  renderDocuments();
 }
 
 async function loadSelectedKnowledgeJobs() {
@@ -1393,6 +1405,7 @@ async function loadSelectedKnowledgeJobs() {
     renderKnowledgeDetail();
     return;
   }
+  const requestedKbId = kb.id;
   const jobStatus = state.jobStatusFilter ? `&status=${encodeURIComponent(state.jobStatusFilter)}` : "";
   const params = new URLSearchParams({
     kbId: kb.id,
@@ -1403,6 +1416,7 @@ async function loadSelectedKnowledgeJobs() {
     params.set("status", state.jobStatusFilter);
   }
   const payload = await apiRequest(`/api/v1/admin/platform/knowledge-ingest-jobs?${params.toString()}`);
+  if (state.selectedKbId !== requestedKbId) return;
   state.jobs = payload.items || [];
   state.jobTotal = numberValue(payload.total, state.jobs.length);
   state.jobPage = numberValue(payload.page, state.jobPage) || 1;
@@ -1414,7 +1428,7 @@ async function loadSelectedKnowledgeJobs() {
   if (state.jobTotalPages && state.jobPage > state.jobTotalPages) {
     state.jobPage = state.jobTotalPages;
   }
-  renderKnowledgeDetail();
+  renderJobs();
 }
 
 function renderKnowledgeDetail() {
@@ -1463,12 +1477,11 @@ function renderKnowledgeDetail() {
 async function setKnowledgeTab(tab) {
   if (!["documents", "jobs", "search", "upload"].includes(tab)) return;
   state.kbTab = tab;
+  renderKnowledgeDetail();
   if (tab === "documents") {
     await loadSelectedKnowledgeDocuments();
   } else if (tab === "jobs") {
     await loadSelectedKnowledgeJobs();
-  } else {
-    renderKnowledgeDetail();
   }
 }
 

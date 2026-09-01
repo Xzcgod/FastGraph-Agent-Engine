@@ -889,7 +889,6 @@ async def list_documents(
                 KnowledgeDocument.title.ilike(term),
                 KnowledgeDocument.source_ref.ilike(term),
                 KnowledgeDocument.file_name.ilike(term),
-                KnowledgeDocument.content_text.ilike(term),
                 KnowledgeDocument.id.ilike(term),
             )
         )

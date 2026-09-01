@@ -23,6 +23,19 @@ class KnowledgeServiceClient:
 
     def __init__(self) -> None:
         self.base_url = settings.KNOWLEDGE_SERVICE_BASE_URL.rstrip("/")
+        self._client: Optional[httpx.AsyncClient] = None
+
+    def _get_client(self) -> httpx.AsyncClient:
+        """获取或创建持久的 AsyncClient，复用连接避免每次新建的开销。"""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(timeout=self._timeout())
+        return self._client
+
+    async def close(self) -> None:
+        """关闭持久连接（应用关闭时调用）。"""
+        if self._client is not None and not self._client.is_closed:
+            await self._client.aclose()
+            self._client = None
 
     def _headers(self, actor: Optional[User] = None, trace_id: Optional[str] = None) -> Dict[str, str]:
         headers = {
@@ -62,23 +75,23 @@ class KnowledgeServiceClient:
         data: Optional[Dict[str, Any]] = None,
     ) -> Any:
         headers = self._headers(actor=actor, trace_id=trace_id)
-        async with httpx.AsyncClient(timeout=self._timeout()) as client:
-            try:
-                response = await client.request(
-                    method,
-                    self._url(path),
-                    headers=headers,
-                    json=json_body,
-                    params=self._params(params),
-                    files=files,
-                    data=data,
-                )
-            except httpx.HTTPError as exc:
-                logger.exception("knowledge_service_request_failed", error=str(exc), path=path)
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Knowledge service is unavailable",
-                ) from exc
+        client = self._get_client()
+        try:
+            response = await client.request(
+                method,
+                self._url(path),
+                headers=headers,
+                json=json_body,
+                params=self._params(params),
+                files=files,
+                data=data,
+            )
+        except httpx.HTTPError as exc:
+            logger.exception("knowledge_service_request_failed", error=str(exc), path=path)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Knowledge service is unavailable",
+            ) from exc
 
         content_type = response.headers.get("content-type", "")
         if "application/json" in content_type:
