@@ -155,6 +155,22 @@ function Normalize-ProcessPathEnvironment {
     [Environment]::SetEnvironmentVariable("Path", $pathValue, "Process")
 }
 
+function Invoke-TreeKill {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$ProcessId
+    )
+
+    $previousEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & taskkill /F /T /PID $ProcessId 2>&1 | Out-Null
+        return $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousEAP
+    }
+}
+
 function Stop-TrackedService {
     param(
         [Parameter(Mandatory = $true)]
@@ -164,35 +180,41 @@ function Stop-TrackedService {
     )
 
     $pidFile = Get-PidFile -Name $Name
+    $trackedPid = $null
+
+    # 1. 先停掉 tracked PID（从 pid 文件读到的进程）
     if (Test-Path $pidFile) {
         $rawPid = (Get-Content -Path $pidFile -Raw).Trim()
         if ($rawPid) {
-            try {
-                Stop-Process -Id ([int]$rawPid) -Force -ErrorAction Stop
-                Write-Host "Stopped $Name (PID $rawPid)"
-                Remove-Item -Path $pidFile -Force -ErrorAction SilentlyContinue
-                return
-            } catch {
-                Write-Warning ("Failed to stop tracked PID {0} for {1}: {2}" -f $rawPid, $Name, $_.Exception.Message)
+            $trackedPid = [int]$rawPid
+            $exit = Invoke-TreeKill -ProcessId $trackedPid
+            if ($exit -eq 0) {
+                Write-Host "Stopped $Name (PID $trackedPid)"
+            } else {
+                Write-Warning ("Failed to stop tracked PID {0} for {1}" -f $trackedPid, $Name)
             }
         }
     }
 
+    # 2. 清理端口上残留的 listener（如 uvicorn reload 的 worker 子进程）
     $listenerPids = Get-ListeningPids -Port $Port
     if (-not $listenerPids) {
         Write-Host "$Name is not listening on port $Port"
-        return
-    }
-
-    foreach ($listenerPid in $listenerPids) {
-        try {
-            Stop-Process -Id $listenerPid -Force -ErrorAction Stop
-            Write-Host "Stopped $Name (PID $listenerPid)"
-        } catch {
-            Write-Warning ("Failed to stop {0} PID {1}: {2}" -f $Name, $listenerPid, $_.Exception.Message)
+    } else {
+        foreach ($listenerPid in $listenerPids) {
+            if ($null -ne $trackedPid -and $listenerPid -eq $trackedPid) {
+                continue
+            }
+            $exit = Invoke-TreeKill -ProcessId $listenerPid
+            if ($exit -eq 0) {
+                Write-Host "Stopped $Name (PID $listenerPid)"
+            } else {
+                Write-Warning ("Failed to stop {0} PID {1}" -f $Name, $listenerPid)
+            }
         }
     }
 
+    # 3. 清理 pid 文件
     Remove-Item -Path $pidFile -Force -ErrorAction SilentlyContinue
 }
 
