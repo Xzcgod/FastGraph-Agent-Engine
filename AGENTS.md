@@ -14,7 +14,7 @@ Web 框架: FastAPI (异步处理，极高并发)
 
 持久化: PostgreSQL + pgvector (向量搜索) + SQLModel (ORM)
 
-LLM 网关: 深度对接硅基流动 (SiliconFlow) 及自研的 Failover 高可用路由。
+LLM 网关: 深度对接 DeepSeek 官方 API 及自研的 Failover 高可用路由。
 
 ⚠️ 绝对禁忌 (Common Pitfalls to Avoid)
 
@@ -58,4 +58,4 @@ FastAPI 官方文档
 
 SQLModel 官方文档
 
-硅基流动 API 文档
+DeepSeek 官方 API 文档
