@@ -73,6 +73,7 @@ def knowledge_base_search(
     """从平台知识库检索文档内容。
 
     当问题需要项目特定文档、业务流程或平台配置依据时优先调用此工具。
+    query 参数请用简洁关键词（如「OPC企业 扶持政策」），不要用完整问句，检索效果更好。
     检索范围已由平台管理员绑定到当前 Agent，无需也无法自行指定知识库。
     """
     return _run_async_safely(_search(query, kb_ids, top_k, min_score))

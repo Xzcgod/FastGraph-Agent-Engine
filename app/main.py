@@ -48,6 +48,7 @@ from app.core.middleware import (
     LoggingContextMiddleware,
     MetricsMiddleware,
 )
+from app.core.langgraph.graph import chatbot
 from app.services.database import database_service
 
 # ============================================================================
@@ -90,6 +91,9 @@ async def lifespan(app: FastAPI):
     )
     await asyncio.to_thread(database_service.create_db_and_tables)
     logger.info("database_tables_ready")
+    # 预热 LangGraph 图：预建连接池 + Checkpointer，避免首次请求冷启动卡顿
+    await chatbot.initialize()
+    logger.info("langgraph_ready")
     # yield 将控制权交给 FastAPI，应用开始接受请求
     yield
     logger.info("application_shutdown")

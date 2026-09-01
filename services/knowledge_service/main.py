@@ -32,6 +32,7 @@ from services.knowledge_service.service import (
     delete_job,
     get_base,
     get_document,
+    get_embedding,
     get_job,
     ingest_file,
     list_bases,
@@ -54,6 +55,12 @@ async def lifespan(app: FastAPI):
     app.state.ingest_semaphore = asyncio.Semaphore(settings.ingest_concurrency)
     await init_database()
     logger.info("knowledge_service_database_ready")
+    # 预热 embedding 模型（触发 Ollama 加载 bge-m3），避免首次检索冷启动
+    try:
+        await get_embedding("预热")
+        logger.info("knowledge_service_embedding_warmed_up")
+    except Exception as exc:
+        logger.warning("knowledge_service_embedding_warmup_failed", error=str(exc))
     yield
     logger.info("knowledge_service_shutdown", service_name=settings.service_name)
 
