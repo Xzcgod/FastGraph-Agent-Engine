@@ -220,6 +220,7 @@ async function handleActionClick(event) {
     if (action === "select-session") await selectSession(id);
     if (action === "delete-session") await deleteSession(id);
     if (action === "new-session") await createChatSession();
+    if (action === "clear-chat-history") await clearChatHistory();
     if (action === "refresh-admin") await refreshAdmin();
     if (action === "refresh-knowledge") await refreshKnowledge();
     if (action === "edit-agent") editAgent(id);
@@ -560,7 +561,7 @@ async function createChatSession() {
     return;
   }
   const name = encodeURIComponent(`${agent.name} 对话`);
-  const payload = await apiRequest(`/api/v1/auth/sessions?name=${name}`, {
+  const payload = await apiRequest(`/api/v1/sessions?name=${name}`, {
     method: "POST",
   });
   applySession(payload, agent.agentId);
@@ -577,7 +578,7 @@ async function refreshSessions(options = {}) {
   if (!state.userToken) return;
   try {
     const previousSessionId = state.sessionId;
-    const payload = await apiRequest("/api/v1/auth/sessions");
+    const payload = await apiRequest("/api/v1/sessions");
     state.sessions = Array.isArray(payload) ? payload : [];
     pruneSessionAgents();
     if (options.preferSessionId) {
@@ -620,7 +621,7 @@ async function deleteSession(sessionId) {
   if (!session) return;
   const confirmed = window.confirm(`确定删除会话「${session.name || shortId(session.session_id)}」吗？`);
   if (!confirmed) return;
-  await apiRequest(`/api/v1/auth/sessions/${encodeURIComponent(sessionId)}`, {
+  await apiRequest(`/api/v1/sessions/${encodeURIComponent(sessionId)}`, {
     method: "DELETE",
   });
   state.sessions = state.sessions.filter((item) => item.session_id !== sessionId);
@@ -654,15 +655,13 @@ async function restoreAgentSession(options = {}) {
 }
 
 async function loadSessionHistory() {
-  if (!state.sessionToken) {
+  if (!state.sessionId) {
     state.messages = [];
     renderMessages();
     return;
   }
   try {
-    const payload = await apiRequest("/api/v1/chatbot/history", {
-      headers: { Authorization: `Bearer ${state.sessionToken}` },
-    });
+    const payload = await apiRequest(`/api/v1/sessions/${encodeURIComponent(state.sessionId)}/history`);
     state.messages = Array.isArray(payload)
       ? payload.map(normalizeHistoryMessage).filter(Boolean)
       : [];
@@ -670,6 +669,21 @@ async function loadSessionHistory() {
   } catch (error) {
     toast(errorMessage(error), "error");
   }
+}
+
+async function clearChatHistory() {
+  if (!state.sessionId) {
+    toast("请先选择会话", "error");
+    return;
+  }
+  const confirmed = window.confirm("确定清空当前会话的聊天记录吗？此操作不可恢复。");
+  if (!confirmed) return;
+  await apiRequest(`/api/v1/sessions/${encodeURIComponent(state.sessionId)}/history`, {
+    method: "DELETE",
+  });
+  state.messages = [];
+  renderMessages();
+  toast("聊天记录已清空");
 }
 
 function applySession(session, agentId) {

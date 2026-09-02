@@ -549,15 +549,20 @@ class Chatbot:
         """
         api_messages = []
         for msg in messages:
+            if isinstance(msg, ToolMessage):
+                # 工具消息是内部调用结果，不展示给用户
+                continue
             role = "user"
             if isinstance(msg, AIMessage):
                 role = "assistant"
             elif isinstance(msg, SystemMessage):
                 role = "system"
-            elif isinstance(msg, ToolMessage):
-                # 工具消息是内部调用结果，不展示给用户
+            # 跳过空/纯空白内容的消息（如纯工具调用的 AIMessage），
+            # 避免触发 Message.content 的 min_length=1 校验导致 500
+            content = str(msg.content or "")
+            if not content.strip():
                 continue
-            api_messages.append(ApiMessage(role=role, content=str(msg.content)))
+            api_messages.append(ApiMessage(role=role, content=content))
         return api_messages
 
 

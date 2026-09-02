@@ -27,6 +27,7 @@ from services.knowledge_service.service import (
     archive_base,
     archive_document,
     clear_jobs,
+    close_rerank_client,
     create_base,
     delete_base,
     delete_job,
@@ -62,6 +63,7 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("knowledge_service_embedding_warmup_failed", error=str(exc))
     yield
+    await close_rerank_client()
     logger.info("knowledge_service_shutdown", service_name=settings.service_name)
 
 

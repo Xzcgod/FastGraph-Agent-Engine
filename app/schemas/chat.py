@@ -13,12 +13,12 @@
     ChatRequest - 聊天请求（消息列表 + 功能开关）。
     ChatResponse - 聊天响应（AI 回复消息列表）。
     StreamResponse - 流式聊天响应（逐块的文本内容）。
-    EmailApprovalRequest - 邮件审批请求（批准/拒绝 + 可选备注）。
+    ResumeRequest - 恢复会话请求（批准/拒绝 + 可选备注）。
 
 安全设计：
     - Message.content 校验：拒绝包含 <script> 标签的消息（防 XSS）。
     - FeatureFlags 所有功能默认关闭（最小权限原则）。
-    - EmailApprovalRequest 提供明确的 approved 布尔字段（不可绕过）。
+    - ResumeRequest 提供明确的 approved 布尔字段（不可绕过）。
 """
 
 import re
@@ -145,22 +145,21 @@ class StreamResponse(BaseModel):
     done: bool = Field(default=False, description="是否已完成流式输出")
 
 
-class EmailApprovalRequest(BaseModel):
+class ResumeRequest(BaseModel):
     """
-    邮件审批请求模型。
+    恢复被中断会话的请求模型（审批结果）。
 
-    当 Agent 的 prepare_email 工具触发 Human-in-the-loop 暂停后，
-    前端展示审批卡片，用户点击批准/拒绝后提交此模型。
+    当 Agent 触发 Human-in-the-loop 暂停（如邮件审批）后，前端提交此模型
+    批准或拒绝继续执行。session_id 走路径参数（POST /sessions/{id}/resume）。
 
     工作流程：
         1. Agent 调用 prepare_email → Graph 暂停。
         2. 前端检测到暂停信号 → 展示审批 UI。
-        3. 用户操作 → 调用 POST /chatbot/resume 传入此模型。
+        3. 用户操作 → 调用 POST /sessions/{session_id}/resume 传入此模型。
         4. 后端向 Graph 发送 Command(resume="approved"/"rejected")。
         5. Agent 继续执行或取消。
     """
-    session_id: str = Field(..., description="会话 ID")
-    approved: bool = Field(..., description="true=批准发送邮件，false=拒绝发送邮件")
+    approved: bool = Field(..., description="true=批准继续，false=拒绝继续")
     human_response: Optional[Dict] = Field(
         default=None,
         description="传给 LangGraph 的完整响应对象，不传时自动构建"

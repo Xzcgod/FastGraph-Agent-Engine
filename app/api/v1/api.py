@@ -3,19 +3,23 @@ API v1 路由聚合中心。
 
 本模块是 API v1 版本的"总路由器"，负责：
 1. 创建 v1 版本的 APIRouter 实例。
-2. 将各功能模块的路由器（auth、chatbot）挂载到统一的路径前缀下。
+2. 将各功能模块的路由器（auth、sessions、agents、admin）挂载到统一的路径前缀下。
 3. 定义 v1 级别的健康检查端点。
 
 路由挂载规则：
-    - auth_router    → /api/v1/auth/*    （认证和会话管理）
-    - chatbot_router → /api/v1/chatbot/* （对话、文档上传、会话管理）
+    - auth_router     → /api/v1/auth/*     （注册、登录、当前用户）
+    - sessions_router → /api/v1/sessions/* （会话 CRUD、聊天记录、审批恢复）
+    - agents_router   → /api/v1/agents/*   （Agent 目录、对话调用）
+    - admin_router    → /api/v1/admin/platform/*（平台管理、知识库代理）
 
 架构说明：
-    main.py                    ← 应用主入口，挂载 api_router 到 /api/v1
-      └── api_router (本模块)   ← v1 路由器
-            ├── auth_router    ← /auth 前缀（注册、登录、会话CRUD）
-            ├── chatbot_router ← /chatbot 前缀（对话、文档上传）
-            └── /health        ← v1 健康检查端点
+    main.py                        ← 应用主入口，挂载 api_router 到 /api/v1
+      └── api_router (本模块)       ← v1 路由器
+            ├── auth_router        ← /auth 前缀（注册、登录、当前用户）
+            ├── sessions_router    ← /sessions 前缀（会话、历史、恢复）
+            ├── agents_router      ← /agents 前缀（Agent 目录、对话）
+            ├── admin_router       ← /admin/platform 前缀（管理、知识库）
+            └── /health            ← v1 健康检查端点
 """
 
 from fastapi import APIRouter
@@ -23,7 +27,7 @@ from fastapi import APIRouter
 from app.api.v1.admin import router as admin_router
 from app.api.v1.agents import router as agents_router
 from app.api.v1.auth import router as auth_router
-from app.api.v1.chatbot import router as chatbot_router
+from app.api.v1.sessions import router as sessions_router
 from app.core.logging import logger
 
 # 创建 v1 版本的路由器实例
@@ -39,10 +43,10 @@ api_router = APIRouter()
 # tags=["auth"] 让 Swagger 文档中所有认证接口归类在 "auth" 标签下
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
 
-# 聊天路由：所有以 /chatbot 开头的请求都交给 chatbot_router 处理
-# 例如：POST /api/v1/chatbot/chat → chatbot_router 的 chat 函数处理
-# tags=["chatbot"] 让 Swagger 文档中所有聊天接口归类在 "chatbot" 标签下
-api_router.include_router(chatbot_router, prefix="/chatbot", tags=["chatbot"])
+# 会话路由：所有以 /sessions 开头的请求都交给 sessions_router 处理
+# 例如：POST /api/v1/sessions → sessions_router 的 create_session 函数处理
+# tags=["sessions"] 让 Swagger 文档中所有会话接口归类在 "sessions" 标签下
+api_router.include_router(sessions_router, prefix="/sessions", tags=["sessions"])
 
 # 平台管理员控制面：Agent 配置和 knowledge-service 代理
 api_router.include_router(admin_router, prefix="/admin/platform", tags=["admin-platform"])

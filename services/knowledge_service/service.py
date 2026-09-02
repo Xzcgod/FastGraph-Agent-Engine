@@ -8,6 +8,7 @@ import asyncio
 import hashlib
 import json
 import re
+from collections import OrderedDict
 from math import ceil
 from datetime import UTC, datetime
 from typing import Any, Dict, List
@@ -34,6 +35,15 @@ from services.knowledge_service.models import (
 TERMINAL_JOB_STATUSES = {"completed", "partial_completed", "failed", "canceled"}
 SENTENCE_BOUNDARY_RE = re.compile(r"[^。！？!?；;.]+[。！？!?；;.]?")
 PARAGRAPH_BOUNDARY_RE = re.compile(r"\n\s*\n+")
+
+# 查询向量缓存容量：命中时避免 Ollama 往返，容量限制防止内存膨胀。
+EMBEDDING_CACHE_MAX = 256
+
+# 复用的外部服务客户端：embedding 与 rerank 都走持久连接，避免每次检索重建连接
+# （与 knowledge_client 复用持久 httpx.AsyncClient 的约定一致）。
+_embeddings_client: OpenAIEmbeddings | None = None
+_rerank_client: httpx.AsyncClient | None = None
+_embedding_cache: OrderedDict[str, List[float]] = OrderedDict()
 
 
 def utc_now() -> datetime:
@@ -202,9 +212,62 @@ def chunk_text(title: str, content: str) -> List[str]:
     return _apply_chunk_overlap(chunks)
 
 
+def _get_embeddings_client() -> OpenAIEmbeddings:
+    """获取或创建复用的 embedding 客户端，避免每次检索重建连接。"""
+    global _embeddings_client
+    if _embeddings_client is None:
+        _embeddings_client = OpenAIEmbeddings(
+            model=settings.embedding_model,
+            openai_api_key=settings.embedding_api_key,
+            openai_api_base=settings.embedding_base_url,
+            check_embedding_ctx_length=False,
+        )
+    return _embeddings_client
+
+
+def _get_rerank_client() -> httpx.AsyncClient:
+    """获取或创建复用的 rerank HTTP 客户端，避免每次检索新建连接。"""
+    global _rerank_client
+    if _rerank_client is None or _rerank_client.is_closed:
+        _rerank_client = httpx.AsyncClient(timeout=15.0)
+    return _rerank_client
+
+
+async def close_rerank_client() -> None:
+    """关闭 rerank 持久连接（应用关闭时调用）。"""
+    global _rerank_client
+    if _rerank_client is not None and not _rerank_client.is_closed:
+        await _rerank_client.aclose()
+    _rerank_client = None
+
+
+def _cached_embedding(text: str) -> List[float] | None:
+    key = text.strip()
+    if key in _embedding_cache:
+        vector = _embedding_cache.pop(key)
+        _embedding_cache[key] = vector
+        return vector
+    return None
+
+
+def _cache_embedding(text: str, vector: List[float]) -> None:
+    key = text.strip()
+    if not key:
+        return
+    _embedding_cache[key] = vector
+    _embedding_cache.move_to_end(key)
+    while len(_embedding_cache) > EMBEDDING_CACHE_MAX:
+        _embedding_cache.popitem(last=False)
+
+
 async def get_embedding(text: str) -> List[float]:
+    cached = _cached_embedding(text)
+    if cached is not None:
+        return cached
     embeddings = await get_embeddings([text])
-    return embeddings[0]
+    vector = embeddings[0]
+    _cache_embedding(text, vector)
+    return vector
 
 
 async def get_embeddings(texts: List[str]) -> List[List[float]]:
@@ -217,12 +280,7 @@ async def get_embeddings(texts: List[str]) -> List[List[float]]:
     if not texts:
         return []
     cleaned_texts = [text if text else " " for text in texts]
-    embeddings = OpenAIEmbeddings(
-        model=settings.embedding_model,
-        openai_api_key=settings.embedding_api_key,
-        openai_api_base=settings.embedding_base_url,
-        check_embedding_ctx_length=False,
-    )
+    embeddings = _get_embeddings_client()
     try:
         vectors = await embeddings.aembed_documents(cleaned_texts, chunk_size=settings.embedding_batch_size)
     except Exception as exc:
@@ -249,6 +307,8 @@ async def get_embeddings(texts: List[str]) -> List[List[float]]:
 async def rerank_items(query: str, items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     if not items or not settings.reranker_api_key:
         return items
+    if len(items) <= 1:
+        return items
     documents = [str(item.get("contentExcerpt") or "") for item in items]
     payload = {
         "model": settings.reranker_model,
@@ -262,14 +322,13 @@ async def rerank_items(query: str, items: List[Dict[str, Any]]) -> List[Dict[str
         "Content-Type": "application/json",
     }
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(
-                f"{settings.reranker_base_url.rstrip('/')}/rerank",
-                json=payload,
-                headers=headers,
-            )
-            response.raise_for_status()
-            data = response.json()
+        response = await _get_rerank_client().post(
+            f"{settings.reranker_base_url.rstrip('/')}/rerank",
+            json=payload,
+            headers=headers,
+        )
+        response.raise_for_status()
+        data = response.json()
     except Exception as exc:
         logger.exception("knowledge_rerank_failed", error=str(exc))
         return items

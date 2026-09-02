@@ -36,6 +36,8 @@ from typing import (
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.messages import BaseMessage
 from langchain_openai import ChatOpenAI
+from langfuse import Langfuse
+from langfuse.langchain import CallbackHandler
 # 导入 OpenAI SDK 的各种错误类型（超时、限流、通用 API 错误）
 from openai import (
     APIError,
@@ -57,6 +59,32 @@ from app.core.config import (
     settings,
 )
 from app.core.logging import logger
+
+
+# ============================================================================
+# Langfuse 追踪回调
+# ============================================================================
+# 统一挂载 Langfuse CallbackHandler，使所有 LLM 调用自动产生 trace。
+# 未配置密钥时返回 None（不追踪）。Langfuse v3 要求先初始化客户端再建
+# CallbackHandler，否则回调无法关联到客户端（会静默跳过追踪）。
+def _build_langfuse_handler() -> Optional[CallbackHandler]:
+    if not (settings.LANGFUSE_PUBLIC_KEY and settings.LANGFUSE_SECRET_KEY):
+        return None
+    Langfuse(
+        public_key=settings.LANGFUSE_PUBLIC_KEY,
+        secret_key=settings.LANGFUSE_SECRET_KEY,
+        host=settings.LANGFUSE_HOST,
+    )
+    return CallbackHandler(public_key=settings.LANGFUSE_PUBLIC_KEY)
+
+
+_LANGFUSE_HANDLER = _build_langfuse_handler()
+_CALLBACKS = [_LANGFUSE_HANDLER] if _LANGFUSE_HANDLER else None
+
+
+def _chat_openai(model: str, **kwargs) -> ChatOpenAI:
+    """构造 ChatOpenAI，并统一挂载 Langfuse 追踪回调。"""
+    return ChatOpenAI(model=model, callbacks=_CALLBACKS, **kwargs)
 
 
 class LLMRegistry:
@@ -89,8 +117,8 @@ class LLMRegistry:
     LLMS: List[Dict[str, Any]] = [
         {
             "name": "deepseek-v4-pro",
-            "llm": ChatOpenAI(
-                model="deepseek-v4-pro",
+            "llm": _chat_openai(
+                "deepseek-v4-pro",
                 api_key=settings.OPENAI_API_KEY,
                 base_url=settings.OPENAI_BASE_URL,  # DeepSeek 官方 API
                 temperature=settings.DEFAULT_LLM_TEMPERATURE,  # 若报"不支持 temperature"可移除此行
@@ -99,8 +127,8 @@ class LLMRegistry:
         },
         {
             "name": "deepseek-chat",
-            "llm": ChatOpenAI(
-                model="deepseek-chat",
+            "llm": _chat_openai(
+                "deepseek-chat",
                 api_key=settings.OPENAI_API_KEY,
                 base_url=settings.OPENAI_BASE_URL,  # DeepSeek 官方 API
                 temperature=settings.DEFAULT_LLM_TEMPERATURE,
@@ -109,8 +137,8 @@ class LLMRegistry:
         },
         {
             "name": "deepseek-reasoner",
-            "llm": ChatOpenAI(
-                model="deepseek-reasoner",
+            "llm": _chat_openai(
+                "deepseek-reasoner",
                 api_key=settings.OPENAI_API_KEY,
                 base_url=settings.OPENAI_BASE_URL,  # DeepSeek 官方 API
                 # 注意：deepseek-reasoner（R1 推理模型）不支持 temperature 参数
@@ -148,8 +176,8 @@ class LLMRegistry:
         # 2. 如果没找到，按 OpenAI 兼容模型名动态创建
         if not model_entry:
             logger.info("creating_dynamic_llm_instance", model_name=model_name)
-            return ChatOpenAI(
-                model=model_name,
+            return _chat_openai(
+                model_name,
                 api_key=settings.OPENAI_API_KEY,
                 base_url=settings.OPENAI_BASE_URL,
                 temperature=settings.DEFAULT_LLM_TEMPERATURE,
@@ -159,7 +187,7 @@ class LLMRegistry:
         # 3. 如果传入了自定义参数（如 temperature、max_tokens 等），创建新的实例
         if kwargs:
             logger.debug("creating_llm_with_custom_args", model_name=model_name, custom_args=list(kwargs.keys()))
-            return ChatOpenAI(model=model_name, api_key=settings.OPENAI_API_KEY, **kwargs)
+            return _chat_openai(model_name, api_key=settings.OPENAI_API_KEY, **kwargs)
 
         # 4. 否则直接返回预先准备好的那个
         logger.debug("using_default_llm_instance", model_name=model_name)
