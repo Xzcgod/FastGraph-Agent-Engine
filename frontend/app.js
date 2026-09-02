@@ -8,7 +8,7 @@ const STORAGE_KEYS = {
 };
 
 const state = {
-  apiBase: localStorage.getItem(STORAGE_KEYS.apiBase) || "http://127.0.0.1:8000",
+  apiBase: localStorage.getItem(STORAGE_KEYS.apiBase) || (window.APP_CONFIG && window.APP_CONFIG.apiBase) || "http://127.0.0.1:8000",
   userToken: localStorage.getItem(STORAGE_KEYS.userToken) || "",
   userEmail: localStorage.getItem(STORAGE_KEYS.userEmail) || "",
   isAdmin: localStorage.getItem(STORAGE_KEYS.isAdmin) === "1",
