@@ -18,8 +18,8 @@ Environment variables
 .env
 .env.development
 .env.staging
-.env.production
 .env.local
+.env.production.local
 
 IDE & Editor settings
 
