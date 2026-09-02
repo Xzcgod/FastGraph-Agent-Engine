@@ -48,3 +48,7 @@ logs/
 # 本地阅读用的目录级 README（不上传仓库）
 app/**/README.md
 services/**/README.md
+
+# 数据库备份/转储（含敏感数据，不上传仓库）
+*.dump
+*.sql
