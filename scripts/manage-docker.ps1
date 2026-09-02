@@ -32,7 +32,7 @@ function Ensure-OllamaEmbeddingModel {
 
 function Start-DockerInfra {
     Write-Host "Starting Docker infrastructure..."
-    & docker compose --env-file $EnvFile up -d db ollama prometheus grafana cadvisor
+    & docker compose --env-file $EnvFile up -d db ollama
     if ($LASTEXITCODE -ne 0) {
         throw "docker compose up failed"
     }

@@ -43,11 +43,7 @@ from app.api.v1.api import api_router
 from app.core.config import settings
 from app.core.limiter import limiter
 from app.core.logging import logger
-from app.core.metrics import setup_metrics
-from app.core.middleware import (
-    LoggingContextMiddleware,
-    MetricsMiddleware,
-)
+from app.core.middleware import LoggingContextMiddleware
 from app.core.langgraph.graph import chatbot
 from app.services.database import database_service
 
@@ -115,17 +111,9 @@ app = FastAPI(
 # 监控和中间件配置
 # ============================================================================
 
-# 挂载 Prometheus 指标端点 (/metrics)
-# 该端点返回所有已注册的 Counter/Histogram/Gauge 指标数据
-setup_metrics(app)
-
 # 日志上下文中间件（必须最先添加，确保后续中间件和路由都能使用绑定的上下文字段）
 # 功能：从 JWT Token 中提取 session_id 和 user_id，绑定到 structlog 上下文
 app.add_middleware(LoggingContextMiddleware)
-
-# 指标采集中间件
-# 功能：记录每个 HTTP 请求的耗时和状态码，写入 Prometheus 指标
-app.add_middleware(MetricsMiddleware)
 
 # 限流器配置
 # 将 slowapi Limiter 实例绑定到 app.state，供路由装饰器 @limiter.limit() 使用

@@ -49,17 +49,14 @@ dependencies = [
     "bcrypt>=4.3.0",
     "python-jose[cryptography]>=3.4.0",
 
-    # --- 日志与监控 ---
+    # --- 日志 ---
     "structlog>=25.2.0",
-    "prometheus-client>=0.19.0",
-    "starlette-prometheus>=0.7.0",
 
     # --- 工具库 ---
     "slowapi>=0.1.9",
     "email-validator>=2.2.0",
     "asgiref>=3.8.1",
     "tenacity>=9.1.2",
-    "tqdm>=4.67.1",
     "colorama>=0.4.6",
     "httpx>=0.28.1",
 

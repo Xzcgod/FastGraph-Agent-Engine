@@ -33,7 +33,6 @@ LLM 网关: 深度对接 DeepSeek 官方 API 及自研的 Failover 高可用路�
 
 3. **LLM 约定**
    - 主 LLM 统一 DeepSeek 官方 API，模型名 `deepseek-v4-pro`（默认）/ `deepseek-chat` / `deepseek-reasoner`。
-   - 评估模块（`EVALUATION_*`）保持 SiliconFlow 的 Qwen 做 judge，与生成模型不同源。
 
 4. **性能约定（已优化，勿回退）**
    - `knowledge_client` 复用持久 `httpx.AsyncClient`，**禁止每次请求新建**（否则单请求 +400ms）。

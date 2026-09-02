@@ -42,13 +42,23 @@ class Settings:
         self.service_name = os.getenv("KNOWLEDGE_SERVICE_NAME", "knowledge-service")
         self.service_token = os.getenv("KNOWLEDGE_SERVICE_TOKEN", "")
         self.database_url = os.getenv("KNOWLEDGE_DATABASE_URL", database_url_from_postgres_env())
-        self.embedding_api_key = first_env_value("KNOWLEDGE_EMBEDDING_API_KEY", "EVALUATION_API_KEY", "OPENAI_API_KEY")
-        self.embedding_base_url = first_env_value(
-            "KNOWLEDGE_EMBEDDING_BASE_URL",
-            "EVALUATION_BASE_URL",
-            default="https://api.siliconflow.cn/v1",
-        )
-        self.embedding_model = os.getenv("KNOWLEDGE_EMBEDDING_MODEL", "BAAI/bge-m3")
+        # embedding 提供方：local（本地 Ollama）/ api（外部 API），据此自主选择端点、密钥与模型。
+        # 注意：切换提供方后，存量向量失效，需清空 td_knowledge_chunk 重新入库（见部署文档）。
+        self.embedding_provider = os.getenv("KNOWLEDGE_EMBEDDING_PROVIDER", "api").strip().lower()
+
+        if self.embedding_provider == "local":
+            # 本地 Ollama（OpenAI 兼容端点），默认本机 11434，模型 bge-m3
+            self.embedding_base_url = os.getenv("KNOWLEDGE_EMBEDDING_BASE_URL", "http://127.0.0.1:11434/v1")
+            self.embedding_api_key = os.getenv("KNOWLEDGE_EMBEDDING_API_KEY", "ollama")
+            self.embedding_model = os.getenv("KNOWLEDGE_EMBEDDING_MODEL", "bge-m3")
+        else:
+            # 外部 API，默认 SiliconFlow；key 缺省时回退到 OPENAI_API_KEY
+            self.embedding_base_url = first_env_value(
+                "KNOWLEDGE_EMBEDDING_BASE_URL",
+                default="https://api.siliconflow.cn/v1",
+            )
+            self.embedding_api_key = first_env_value("KNOWLEDGE_EMBEDDING_API_KEY", "OPENAI_API_KEY")
+            self.embedding_model = os.getenv("KNOWLEDGE_EMBEDDING_MODEL", "BAAI/bge-m3")
         self.reranker_api_key = first_env_value("KNOWLEDGE_RERANKER_API_KEY")
         self.reranker_base_url = first_env_value(
             "KNOWLEDGE_RERANKER_BASE_URL",

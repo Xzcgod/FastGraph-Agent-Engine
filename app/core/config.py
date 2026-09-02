@@ -305,15 +305,6 @@ class Settings:
             if value:
                 self.RATE_LIMIT_ENDPOINTS[endpoint] = value
 
-        # ====================================================================
-        # 评估模块配置（用于自动化评测 Agent 回复质量）
-        # ====================================================================
-        self.EVALUATION_LLM = os.getenv("EVALUATION_LLM", "Qwen/Qwen3-32B")
-        self.EVALUATION_BASE_URL = os.getenv("EVALUATION_BASE_URL", "https://api.siliconflow.cn/v1")
-        self.EVALUATION_API_KEY = os.getenv("EVALUATION_API_KEY", self.OPENAI_API_KEY)
-        # 评估请求之间的休眠时间（秒），避免触发目标 API 的限流
-        self.EVALUATION_SLEEP_TIME = int(os.getenv("EVALUATION_SLEEP_TIME", "10"))
-
         # 最后一步：根据环境覆盖部分配置（如开发环境启用 DEBUG）
         self.apply_environment_settings()
 

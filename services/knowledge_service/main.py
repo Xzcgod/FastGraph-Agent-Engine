@@ -19,7 +19,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.limiter import limiter
 from app.core.logging import logger
-from app.core.metrics import setup_metrics
 from services.knowledge_service.config import settings
 from services.knowledge_service.db import init_database, session_dependency
 from services.knowledge_service.security import actor_from_headers, require_service_token
@@ -76,7 +75,6 @@ app = FastAPI(
 )
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-setup_metrics(app)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],

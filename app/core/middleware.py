@@ -1,24 +1,13 @@
 """
 自定义中间件模块 - 处理 HTTP 请求的横切关注点。
 
-本模块包含两个中间件：
-
-1. MetricsMiddleware：
-   - 记录每个 HTTP 请求的耗时和状态码。
-   - 将数据写入 Prometheus Counter 和 Histogram 指标。
-   - 在 finally 块中执行，确保即使请求失败也能记录指标。
-
-2. LoggingContextMiddleware：
+LoggingContextMiddleware：
    - 从 JWT Token 中提取 session_id 和 user_id。
    - 将提取的标识符绑定到 structlog 的上下文变量中。
    - 确保每个请求的日志都自动携带会话和用户信息。
    - 请求结束后清除上下文，防止跨请求数据泄露。
-
-中间件执行顺序（在 main.py 中定义）：
-    请求 → LoggingContextMiddleware → MetricsMiddleware → 路由处理器
 """
 
-import time
 from typing import Callable
 
 from fastapi import Request
@@ -34,68 +23,6 @@ from app.core.logging import (
     bind_context,
     clear_context,
 )
-from app.core.metrics import (
-    db_connections,
-    http_request_duration_seconds,
-    http_requests_total,
-)
-
-
-class MetricsMiddleware(BaseHTTPMiddleware):
-    """
-    HTTP 请求指标采集中间件。
-
-    对每个经过的 HTTP 请求，记录：
-    - 请求总数（按 method、endpoint、status 分组）。
-    - 请求耗时分布（按 method、endpoint 分组）。
-
-    指标采集在 finally 块中进行，确保：
-    - 正常响应的请求被记录。
-    - 抛出异常的请求也被记录（状态码计为 500）。
-    """
-
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """
-        拦截每个 HTTP 请求，采集指标后继续处理。
-
-        Args:
-            request: 当前 HTTP 请求对象。
-            call_next: 调用下一个中间件或路由处理器的回调函数。
-
-        Returns:
-            Response: HTTP 响应对象。
-        """
-        # 记录请求开始时间（用于计算耗时）
-        start_time = time.time()
-
-        try:
-            # 调用下游处理器（可能是下一个中间件，也可能是路由处理器）
-            response = await call_next(request)
-            status_code = response.status_code
-        except Exception:
-            # 如果处理器抛出未捕获的异常，状态码记为 500
-            status_code = 500
-            raise  # 重新抛出异常，让 FastAPI 的异常处理器处理
-        finally:
-            # 计算请求耗时（秒）
-            duration = time.time() - start_time
-
-            # 请求总数 +1（按 method、endpoint、status 标签分类）
-            http_requests_total.labels(
-                method=request.method,
-                endpoint=request.url.path,
-                status=status_code
-            ).inc()
-
-            # 记录请求耗时观测值（直方图按分桶自动统计分布）
-            http_request_duration_seconds.labels(
-                method=request.method,
-                endpoint=request.url.path
-            ).observe(duration)
-
-        return response
-
-
 class LoggingContextMiddleware(BaseHTTPMiddleware):
     """
     日志上下文中件间。
