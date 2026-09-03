@@ -1,0 +1,184 @@
+{"id": "q001", "intent": "区域", "query": "有哪些国家级的政策？", "golden": {"区域": "国家"}, "golden_count": 4610, "notes": ""}
+{"id": "q002", "intent": "区域", "query": "国家层面出台了哪些政策？", "golden": {"区域": "国家"}, "golden_count": 4610, "notes": ""}
+{"id": "q003", "intent": "区域", "query": "湖北省出台了哪些政策？", "golden": {"区域": "湖北"}, "golden_count": 1558, "notes": ""}
+{"id": "q004", "intent": "区域", "query": "省级（湖北省）的政策有哪些？", "golden": {"区域": "湖北"}, "golden_count": 1558, "notes": ""}
+{"id": "q005", "intent": "区域", "query": "武汉市本地的政策有哪些？", "golden": {"区域": "武汉"}, "golden_count": 1116, "notes": ""}
+{"id": "q006", "intent": "区域", "query": "武汉有什么针对企业的政策？", "golden": {"区域": "武汉"}, "golden_count": 1116, "notes": ""}
+{"id": "q007", "intent": "政策类型", "query": "关于创新资质认定的政策", "golden": {"政策类型": "创新资质"}, "golden_count": 2952, "notes": ""}
+{"id": "q008", "intent": "政策类型", "query": "创新资质类政策有哪些", "golden": {"政策类型": "创新资质"}, "golden_count": 2952, "notes": ""}
+{"id": "q009", "intent": "政策类型", "query": "综合性的政策文件", "golden": {"政策类型": "综合政策"}, "golden_count": 1373, "notes": ""}
+{"id": "q010", "intent": "政策类型", "query": "有哪些综合性政策", "golden": {"政策类型": "综合政策"}, "golden_count": 1373, "notes": ""}
+{"id": "q011", "intent": "政策类型", "query": "引导扶持类的政策", "golden": {"政策类型": "引导扶持"}, "golden_count": 696, "notes": ""}
+{"id": "q012", "intent": "政策类型", "query": "引导扶持政策有哪些", "golden": {"政策类型": "引导扶持"}, "golden_count": 696, "notes": ""}
+{"id": "q013", "intent": "政策类型", "query": "创新平台建设方面的政策", "golden": {"政策类型": "创新平台"}, "golden_count": 632, "notes": ""}
+{"id": "q014", "intent": "政策类型", "query": "创新平台相关政策", "golden": {"政策类型": "创新平台"}, "golden_count": 632, "notes": ""}
+{"id": "q015", "intent": "政策类型", "query": "知识产权相关的政策", "golden": {"政策类型": "知识产权"}, "golden_count": 388, "notes": ""}
+{"id": "q016", "intent": "政策类型", "query": "知识产权政策有哪些", "golden": {"政策类型": "知识产权"}, "golden_count": 388, "notes": ""}
+{"id": "q017", "intent": "政策类型", "query": "人才引进和培养的政策", "golden": {"政策类型": "创新人才"}, "golden_count": 249, "notes": ""}
+{"id": "q018", "intent": "政策类型", "query": "创新人才相关政策", "golden": {"政策类型": "创新人才"}, "golden_count": 249, "notes": ""}
+{"id": "q019", "intent": "政策类型", "query": "产业发展方面的政策", "golden": {"政策类型": "产业发展"}, "golden_count": 238, "notes": ""}
+{"id": "q020", "intent": "政策类型", "query": "产业发展政策有哪些", "golden": {"政策类型": "产业发展"}, "golden_count": 238, "notes": ""}
+{"id": "q021", "intent": "政策类型", "query": "金融相关的政策", "golden": {"政策类型": "金融政策"}, "golden_count": 201, "notes": ""}
+{"id": "q022", "intent": "政策类型", "query": "金融类政策有哪些", "golden": {"政策类型": "金融政策"}, "golden_count": 201, "notes": ""}
+{"id": "q023", "intent": "政策类型", "query": "项目申报相关的政策", "golden": {"政策类型": "项目申报"}, "golden_count": 137, "notes": ""}
+{"id": "q024", "intent": "政策类型", "query": "项目申报类政策", "golden": {"政策类型": "项目申报"}, "golden_count": 137, "notes": ""}
+{"id": "q025", "intent": "政策类型", "query": "税收优惠方面的政策", "golden": {"政策类型": "税收优惠"}, "golden_count": 136, "notes": ""}
+{"id": "q026", "intent": "政策类型", "query": "税收优惠政策有哪些", "golden": {"政策类型": "税收优惠"}, "golden_count": 136, "notes": ""}
+{"id": "q027", "intent": "政策类型", "query": "体系标准建设相关的政策", "golden": {"政策类型": "体系标准"}, "golden_count": 134, "notes": ""}
+{"id": "q028", "intent": "政策类型", "query": "体系标准政策", "golden": {"政策类型": "体系标准"}, "golden_count": 134, "notes": ""}
+{"id": "q029", "intent": "政策类型", "query": "乡村振兴相关的政策", "golden": {"政策类型": "乡村振兴"}, "golden_count": 57, "notes": ""}
+{"id": "q030", "intent": "政策类型", "query": "乡村振兴政策有哪些", "golden": {"政策类型": "乡村振兴"}, "golden_count": 57, "notes": ""}
+{"id": "q031", "intent": "政策类型", "query": "科技成果相关的政策", "golden": {"政策类型": "科技成果"}, "golden_count": 38, "notes": ""}
+{"id": "q032", "intent": "政策类型", "query": "科技成果转化政策", "golden": {"政策类型": "科技成果"}, "golden_count": 38, "notes": ""}
+{"id": "q033", "intent": "政策类型", "query": "招商引资相关的政策", "golden": {"政策类型": "招商引资"}, "golden_count": 15, "notes": ""}
+{"id": "q034", "intent": "政策类型", "query": "招商引资政策有哪些", "golden": {"政策类型": "招商引资"}, "golden_count": 15, "notes": ""}
+{"id": "q035", "intent": "政策类型", "query": "园区基地相关的政策", "golden": {"政策类型": "园区基地"}, "golden_count": 11, "notes": ""}
+{"id": "q036", "intent": "政策类型", "query": "园区基地政策", "golden": {"政策类型": "园区基地"}, "golden_count": 11, "notes": ""}
+{"id": "q037", "intent": "政策类型", "query": "赛事活动相关的政策", "golden": {"政策类型": "赛事活动"}, "golden_count": 11, "notes": ""}
+{"id": "q038", "intent": "政策类型", "query": "赛事活动政策有哪些", "golden": {"政策类型": "赛事活动"}, "golden_count": 11, "notes": ""}
+{"id": "q039", "intent": "政策类型", "query": "产品资质相关的政策", "golden": {"政策类型": "产品资质"}, "golden_count": 7, "notes": ""}
+{"id": "q040", "intent": "政策类型", "query": "产品资质认定政策", "golden": {"政策类型": "产品资质"}, "golden_count": 7, "notes": ""}
+{"id": "q041", "intent": "政策类型", "query": "重点奖项申报的政策", "golden": {"政策类型": "重点奖项"}, "golden_count": 6, "notes": ""}
+{"id": "q042", "intent": "政策类型", "query": "重点奖项政策", "golden": {"政策类型": "重点奖项"}, "golden_count": 6, "notes": ""}
+{"id": "q043", "intent": "支持方式", "query": "政策引导类的政策有哪些", "golden": {"支持方式": "政策引导"}, "golden_count": 4810, "notes": ""}
+{"id": "q044", "intent": "支持方式", "query": "只是引导不给钱的政策", "golden": {"支持方式": "政策引导"}, "golden_count": 4810, "notes": ""}
+{"id": "q045", "intent": "支持方式", "query": "哪些政策能拿到资金奖补？", "golden": {"支持方式": "资金奖补"}, "golden_count": 1798, "notes": ""}
+{"id": "q046", "intent": "支持方式", "query": "有资金奖补的政策", "golden": {"支持方式": "资金奖补"}, "golden_count": 1798, "notes": ""}
+{"id": "q047", "intent": "支持方式", "query": "有税收减免的政策吗？", "golden": {"支持方式": "税费优惠"}, "golden_count": 348, "notes": ""}
+{"id": "q048", "intent": "支持方式", "query": "税费优惠政策有哪些", "golden": {"支持方式": "税费优惠"}, "golden_count": 348, "notes": ""}
+{"id": "q049", "intent": "支持方式", "query": "其他支持方式的政策", "golden": {"支持方式": "其他"}, "golden_count": 318, "notes": ""}
+{"id": "q050", "intent": "支持方式", "query": "不属于资金奖补和税费优惠的政策", "golden": {"支持方式": "其他"}, "golden_count": 318, "notes": ""}
+{"id": "q051", "intent": "支持方式", "query": "荣誉资质类的政策", "golden": {"支持方式": "荣誉资质"}, "golden_count": 7, "notes": ""}
+{"id": "q052", "intent": "支持方式", "query": "能获得荣誉资质的政策", "golden": {"支持方式": "荣誉资质"}, "golden_count": 7, "notes": ""}
+{"id": "q053", "intent": "政策文种", "query": "建议提案类的文件", "golden": {"政策文种": "建议提案"}, "golden_count": 1467, "notes": ""}
+{"id": "q054", "intent": "政策文种", "query": "议提案办理相关的文件", "golden": {"政策文种": "建议提案"}, "golden_count": 1467, "notes": ""}
+{"id": "q055", "intent": "政策文种", "query": "有哪些管理办法？", "golden": {"政策文种": "管理办法"}, "golden_count": 1227, "notes": ""}
+{"id": "q056", "intent": "政策文种", "query": "管理办法类文件", "golden": {"政策文种": "管理办法"}, "golden_count": 1227, "notes": ""}
+{"id": "q057", "intent": "政策文种", "query": "实施意见类的文件", "golden": {"政策文种": "实施意见"}, "golden_count": 1114, "notes": ""}
+{"id": "q058", "intent": "政策文种", "query": "实施意见有哪些", "golden": {"政策文种": "实施意见"}, "golden_count": 1114, "notes": ""}
+{"id": "q059", "intent": "政策文种", "query": "实施方案类的文件", "golden": {"政策文种": "实施方案"}, "golden_count": 751, "notes": ""}
+{"id": "q060", "intent": "政策文种", "query": "实施方案有哪些", "golden": {"政策文种": "实施方案"}, "golden_count": 751, "notes": ""}
+{"id": "q061", "intent": "政策文种", "query": "发展规划方面的文件", "golden": {"政策文种": "发展规划"}, "golden_count": 676, "notes": ""}
+{"id": "q062", "intent": "政策文种", "query": "发展规划有哪些", "golden": {"政策文种": "发展规划"}, "golden_count": 676, "notes": ""}
+{"id": "q063", "intent": "政策文种", "query": "综合文件类的文件", "golden": {"政策文种": "综合文件"}, "golden_count": 556, "notes": ""}
+{"id": "q064", "intent": "政策文种", "query": "综合文件有哪些", "golden": {"政策文种": "综合文件"}, "golden_count": 556, "notes": ""}
+{"id": "q065", "intent": "政策文种", "query": "有哪些若干措施？", "golden": {"政策文种": "若干措施"}, "golden_count": 490, "notes": ""}
+{"id": "q066", "intent": "政策文种", "query": "若干措施类文件", "golden": {"政策文种": "若干措施"}, "golden_count": 490, "notes": ""}
+{"id": "q067", "intent": "政策文种", "query": "行动方案类的文件", "golden": {"政策文种": "行动方案"}, "golden_count": 314, "notes": ""}
+{"id": "q068", "intent": "政策文种", "query": "行动方案有哪些", "golden": {"政策文种": "行动方案"}, "golden_count": 314, "notes": ""}
+{"id": "q069", "intent": "政策文种", "query": "找一下实施细则", "golden": {"政策文种": "实施细则"}, "golden_count": 221, "notes": ""}
+{"id": "q070", "intent": "政策文种", "query": "实施细则类文件", "golden": {"政策文种": "实施细则"}, "golden_count": 221, "notes": ""}
+{"id": "q071", "intent": "政策文种", "query": "法律法规类的文件", "golden": {"政策文种": "法律法规"}, "golden_count": 213, "notes": ""}
+{"id": "q072", "intent": "政策文种", "query": "有哪些法律法规", "golden": {"政策文种": "法律法规"}, "golden_count": 213, "notes": ""}
+{"id": "q073", "intent": "政策文种", "query": "征求意见稿类的文件", "golden": {"政策文种": "征求意见稿"}, "golden_count": 192, "notes": ""}
+{"id": "q074", "intent": "政策文种", "query": "征求意见稿有哪些", "golden": {"政策文种": "征求意见稿"}, "golden_count": 192, "notes": ""}
+{"id": "q075", "intent": "部门", "query": "科技部门出台的政策", "golden": {"部门": "科技部门"}, "golden_count": 1512, "notes": ""}
+{"id": "q076", "intent": "部门", "query": "科技部门相关政策", "golden": {"部门": "科技部门"}, "golden_count": 1512, "notes": ""}
+{"id": "q077", "intent": "部门", "query": "发改部门的政策文件", "golden": {"部门": "发改部门"}, "golden_count": 2186, "notes": ""}
+{"id": "q078", "intent": "部门", "query": "发改部门相关政策", "golden": {"部门": "发改部门"}, "golden_count": 2186, "notes": ""}
+{"id": "q079", "intent": "部门", "query": "工信部门相关的政策", "golden": {"部门": "工信部门"}, "golden_count": 1808, "notes": ""}
+{"id": "q080", "intent": "部门", "query": "工信部门出台的政策", "golden": {"部门": "工信部门"}, "golden_count": 1808, "notes": ""}
+{"id": "q081", "intent": "部门", "query": "人社部门的政策", "golden": {"部门": "人社部门"}, "golden_count": 1095, "notes": ""}
+{"id": "q082", "intent": "部门", "query": "人社部门相关政策", "golden": {"部门": "人社部门"}, "golden_count": 1095, "notes": ""}
+{"id": "q083", "intent": "部门", "query": "知识产权局的政策", "golden": {"部门": "知识产权局"}, "golden_count": 681, "notes": ""}
+{"id": "q084", "intent": "部门", "query": "知识产权局出台的政策", "golden": {"部门": "知识产权局"}, "golden_count": 681, "notes": ""}
+{"id": "q085", "intent": "部门", "query": "地方金融监管方面的政策", "golden": {"部门": "地方金融监管"}, "golden_count": 208, "notes": ""}
+{"id": "q086", "intent": "部门", "query": "地方金融监管政策", "golden": {"部门": "地方金融监管"}, "golden_count": 208, "notes": ""}
+{"id": "q087", "intent": "产业分类", "query": "新一代信息技术产业的政策", "golden": {"产业分类": "新一代信息技术产业"}, "golden_count": 669, "notes": ""}
+{"id": "q088", "intent": "产业分类", "query": "新一代信息技术相关政策", "golden": {"产业分类": "新一代信息技术产业"}, "golden_count": 669, "notes": ""}
+{"id": "q089", "intent": "产业分类", "query": "高端装备制造产业的政策", "golden": {"产业分类": "高端装备制造产业"}, "golden_count": 433, "notes": ""}
+{"id": "q090", "intent": "产业分类", "query": "高端装备制造相关政策", "golden": {"产业分类": "高端装备制造产业"}, "golden_count": 433, "notes": ""}
+{"id": "q091", "intent": "产业分类", "query": "节能环保产业的政策", "golden": {"产业分类": "节能环保产业"}, "golden_count": 409, "notes": ""}
+{"id": "q092", "intent": "产业分类", "query": "节能环保相关政策", "golden": {"产业分类": "节能环保产业"}, "golden_count": 409, "notes": ""}
+{"id": "q093", "intent": "产业分类", "query": "新材料产业的政策", "golden": {"产业分类": "新材料产业"}, "golden_count": 295, "notes": ""}
+{"id": "q094", "intent": "产业分类", "query": "新材料相关政策", "golden": {"产业分类": "新材料产业"}, "golden_count": 295, "notes": ""}
+{"id": "q095", "intent": "产业分类", "query": "新能源产业的政策", "golden": {"产业分类": "新能源产业"}, "golden_count": 279, "notes": ""}
+{"id": "q096", "intent": "产业分类", "query": "新能源相关政策", "golden": {"产业分类": "新能源产业"}, "golden_count": 279, "notes": ""}
+{"id": "q097", "intent": "产业分类", "query": "生物产业的政策", "golden": {"产业分类": "生物产业"}, "golden_count": 155, "notes": ""}
+{"id": "q098", "intent": "产业分类", "query": "生物医药相关政策", "golden": {"产业分类": "生物产业"}, "golden_count": 155, "notes": ""}
+{"id": "q099", "intent": "产业分类", "query": "新能源汽车产业的政策", "golden": {"产业分类": "新能源汽车产业"}, "golden_count": 153, "notes": ""}
+{"id": "q100", "intent": "产业分类", "query": "新能源汽车相关政策", "golden": {"产业分类": "新能源汽车产业"}, "golden_count": 153, "notes": ""}
+{"id": "q101", "intent": "产业分类", "query": "航空航天产业的政策", "golden": {"产业分类": "航空航天产业"}, "golden_count": 44, "notes": ""}
+{"id": "q102", "intent": "产业分类", "query": "航空航天相关政策", "golden": {"产业分类": "航空航天产业"}, "golden_count": 44, "notes": ""}
+{"id": "q103", "intent": "产业分类", "query": "海洋装备产业的政策", "golden": {"产业分类": "海洋装备产业"}, "golden_count": 19, "notes": ""}
+{"id": "q104", "intent": "产业分类", "query": "海洋装备相关政策", "golden": {"产业分类": "海洋装备产业"}, "golden_count": 19, "notes": ""}
+{"id": "q105", "intent": "复合-区域部门", "query": "国家有哪些科技部门出台的政策？", "golden": {"区域": "国家", "部门": "科技部门"}, "golden_count": 878, "notes": "全交叉"}
+{"id": "q106", "intent": "复合-区域部门", "query": "国家有哪些发改部门出台的政策？", "golden": {"区域": "国家", "部门": "发改部门"}, "golden_count": 1854, "notes": "全交叉"}
+{"id": "q107", "intent": "复合-区域部门", "query": "国家有哪些工信部门出台的政策？", "golden": {"区域": "国家", "部门": "工信部门"}, "golden_count": 1308, "notes": "全交叉"}
+{"id": "q108", "intent": "复合-区域部门", "query": "国家有哪些人社部门出台的政策？", "golden": {"区域": "国家", "部门": "人社部门"}, "golden_count": 435, "notes": "全交叉"}
+{"id": "q109", "intent": "复合-区域部门", "query": "国家有哪些知识产权局出台的政策？", "golden": {"区域": "国家", "部门": "知识产权局"}, "golden_count": 338, "notes": "全交叉"}
+{"id": "q110", "intent": "复合-区域部门", "query": "国家有哪些地方金融监管出台的政策？", "golden": {"区域": "国家", "部门": "地方金融监管"}, "golden_count": 0, "notes": "全交叉"}
+{"id": "q111", "intent": "复合-区域部门", "query": "湖北有哪些科技部门出台的政策？", "golden": {"区域": "湖北", "部门": "科技部门"}, "golden_count": 304, "notes": "全交叉"}
+{"id": "q112", "intent": "复合-区域部门", "query": "湖北有哪些发改部门出台的政策？", "golden": {"区域": "湖北", "部门": "发改部门"}, "golden_count": 171, "notes": "全交叉"}
+{"id": "q113", "intent": "复合-区域部门", "query": "湖北有哪些工信部门出台的政策？", "golden": {"区域": "湖北", "部门": "工信部门"}, "golden_count": 410, "notes": "全交叉"}
+{"id": "q114", "intent": "复合-区域部门", "query": "湖北有哪些人社部门出台的政策？", "golden": {"区域": "湖北", "部门": "人社部门"}, "golden_count": 245, "notes": "全交叉"}
+{"id": "q115", "intent": "复合-区域部门", "query": "湖北有哪些知识产权局出台的政策？", "golden": {"区域": "湖北", "部门": "知识产权局"}, "golden_count": 343, "notes": "全交叉"}
+{"id": "q116", "intent": "复合-区域部门", "query": "湖北有哪些地方金融监管出台的政策？", "golden": {"区域": "湖北", "部门": "地方金融监管"}, "golden_count": 87, "notes": "全交叉"}
+{"id": "q117", "intent": "复合-区域部门", "query": "武汉有哪些科技部门出台的政策？", "golden": {"区域": "武汉", "部门": "科技部门"}, "golden_count": 330, "notes": "全交叉"}
+{"id": "q118", "intent": "复合-区域部门", "query": "武汉有哪些发改部门出台的政策？", "golden": {"区域": "武汉", "部门": "发改部门"}, "golden_count": 161, "notes": "全交叉"}
+{"id": "q119", "intent": "复合-区域部门", "query": "武汉有哪些工信部门出台的政策？", "golden": {"区域": "武汉", "部门": "工信部门"}, "golden_count": 90, "notes": "全交叉"}
+{"id": "q120", "intent": "复合-区域部门", "query": "武汉有哪些人社部门出台的政策？", "golden": {"区域": "武汉", "部门": "人社部门"}, "golden_count": 415, "notes": "全交叉"}
+{"id": "q121", "intent": "复合-区域部门", "query": "武汉有哪些知识产权局出台的政策？", "golden": {"区域": "武汉", "部门": "知识产权局"}, "golden_count": 0, "notes": "全交叉"}
+{"id": "q122", "intent": "复合-区域部门", "query": "武汉有哪些地方金融监管出台的政策？", "golden": {"区域": "武汉", "部门": "地方金融监管"}, "golden_count": 121, "notes": "全交叉"}
+{"id": "q123", "intent": "复合-区域支持", "query": "国家的政策引导政策有哪些？", "golden": {"区域": "国家", "支持方式": "政策引导"}, "golden_count": 2952, "notes": "全交叉"}
+{"id": "q124", "intent": "复合-区域支持", "query": "国家的资金奖补政策有哪些？", "golden": {"区域": "国家", "支持方式": "资金奖补"}, "golden_count": 1202, "notes": "全交叉"}
+{"id": "q125", "intent": "复合-区域支持", "query": "国家的税费优惠政策有哪些？", "golden": {"区域": "国家", "支持方式": "税费优惠"}, "golden_count": 310, "notes": "全交叉"}
+{"id": "q126", "intent": "复合-区域支持", "query": "国家的其他政策有哪些？", "golden": {"区域": "国家", "支持方式": "其他"}, "golden_count": 136, "notes": "全交叉"}
+{"id": "q127", "intent": "复合-区域支持", "query": "国家的荣誉资质政策有哪些？", "golden": {"区域": "国家", "支持方式": "荣誉资质"}, "golden_count": 7, "notes": "全交叉"}
+{"id": "q128", "intent": "复合-区域支持", "query": "湖北的政策引导政策有哪些？", "golden": {"区域": "湖北", "支持方式": "政策引导"}, "golden_count": 1164, "notes": "全交叉"}
+{"id": "q129", "intent": "复合-区域支持", "query": "湖北的资金奖补政策有哪些？", "golden": {"区域": "湖北", "支持方式": "资金奖补"}, "golden_count": 282, "notes": "全交叉"}
+{"id": "q130", "intent": "复合-区域支持", "query": "湖北的税费优惠政策有哪些？", "golden": {"区域": "湖北", "支持方式": "税费优惠"}, "golden_count": 25, "notes": "全交叉"}
+{"id": "q131", "intent": "复合-区域支持", "query": "湖北的其他政策有哪些？", "golden": {"区域": "湖北", "支持方式": "其他"}, "golden_count": 87, "notes": "全交叉"}
+{"id": "q132", "intent": "复合-区域支持", "query": "湖北的荣誉资质政策有哪些？", "golden": {"区域": "湖北", "支持方式": "荣誉资质"}, "golden_count": 0, "notes": "全交叉"}
+{"id": "q133", "intent": "复合-区域支持", "query": "武汉的政策引导政策有哪些？", "golden": {"区域": "武汉", "支持方式": "政策引导"}, "golden_count": 694, "notes": "全交叉"}
+{"id": "q134", "intent": "复合-区域支持", "query": "武汉的资金奖补政策有哪些？", "golden": {"区域": "武汉", "支持方式": "资金奖补"}, "golden_count": 314, "notes": "全交叉"}
+{"id": "q135", "intent": "复合-区域支持", "query": "武汉的税费优惠政策有哪些？", "golden": {"区域": "武汉", "支持方式": "税费优惠"}, "golden_count": 13, "notes": "全交叉"}
+{"id": "q136", "intent": "复合-区域支持", "query": "武汉的其他政策有哪些？", "golden": {"区域": "武汉", "支持方式": "其他"}, "golden_count": 95, "notes": "全交叉"}
+{"id": "q137", "intent": "复合-区域支持", "query": "武汉的荣誉资质政策有哪些？", "golden": {"区域": "武汉", "支持方式": "荣誉资质"}, "golden_count": 0, "notes": "全交叉"}
+{"id": "q138", "intent": "复合-区域产业", "query": "国家关于新一代信息技术产业的政策", "golden": {"区域": "国家", "产业分类": "新一代信息技术产业"}, "golden_count": 191, "notes": "全交叉"}
+{"id": "q139", "intent": "复合-区域产业", "query": "国家关于高端装备制造产业的政策", "golden": {"区域": "国家", "产业分类": "高端装备制造产业"}, "golden_count": 152, "notes": "全交叉"}
+{"id": "q140", "intent": "复合-区域产业", "query": "国家关于节能环保产业的政策", "golden": {"区域": "国家", "产业分类": "节能环保产业"}, "golden_count": 232, "notes": "全交叉"}
+{"id": "q141", "intent": "复合-区域产业", "query": "国家关于新材料产业的政策", "golden": {"区域": "国家", "产业分类": "新材料产业"}, "golden_count": 98, "notes": "全交叉"}
+{"id": "q142", "intent": "复合-区域产业", "query": "国家关于新能源产业的政策", "golden": {"区域": "国家", "产业分类": "新能源产业"}, "golden_count": 151, "notes": "全交叉"}
+{"id": "q143", "intent": "复合-区域产业", "query": "国家关于生物产业的政策", "golden": {"区域": "国家", "产业分类": "生物产业"}, "golden_count": 84, "notes": "全交叉"}
+{"id": "q144", "intent": "复合-区域产业", "query": "国家关于新能源汽车产业的政策", "golden": {"区域": "国家", "产业分类": "新能源汽车产业"}, "golden_count": 61, "notes": "全交叉"}
+{"id": "q145", "intent": "复合-区域产业", "query": "国家关于航空航天产业的政策", "golden": {"区域": "国家", "产业分类": "航空航天产业"}, "golden_count": 26, "notes": "全交叉"}
+{"id": "q146", "intent": "复合-区域产业", "query": "国家关于海洋装备产业的政策", "golden": {"区域": "国家", "产业分类": "海洋装备产业"}, "golden_count": 12, "notes": "全交叉"}
+{"id": "q147", "intent": "复合-区域产业", "query": "湖北关于新一代信息技术产业的政策", "golden": {"区域": "湖北", "产业分类": "新一代信息技术产业"}, "golden_count": 272, "notes": "全交叉"}
+{"id": "q148", "intent": "复合-区域产业", "query": "湖北关于高端装备制造产业的政策", "golden": {"区域": "湖北", "产业分类": "高端装备制造产业"}, "golden_count": 168, "notes": "全交叉"}
+{"id": "q149", "intent": "复合-区域产业", "query": "湖北关于节能环保产业的政策", "golden": {"区域": "湖北", "产业分类": "节能环保产业"}, "golden_count": 104, "notes": "全交叉"}
+{"id": "q150", "intent": "复合-区域产业", "query": "湖北关于新材料产业的政策", "golden": {"区域": "湖北", "产业分类": "新材料产业"}, "golden_count": 131, "notes": "全交叉"}
+{"id": "q151", "intent": "复合-区域产业", "query": "湖北关于新能源产业的政策", "golden": {"区域": "湖北", "产业分类": "新能源产业"}, "golden_count": 73, "notes": "全交叉"}
+{"id": "q152", "intent": "复合-区域产业", "query": "湖北关于生物产业的政策", "golden": {"区域": "湖北", "产业分类": "生物产业"}, "golden_count": 27, "notes": "全交叉"}
+{"id": "q153", "intent": "复合-区域产业", "query": "湖北关于新能源汽车产业的政策", "golden": {"区域": "湖北", "产业分类": "新能源汽车产业"}, "golden_count": 64, "notes": "全交叉"}
+{"id": "q154", "intent": "复合-区域产业", "query": "湖北关于航空航天产业的政策", "golden": {"区域": "湖北", "产业分类": "航空航天产业"}, "golden_count": 9, "notes": "全交叉"}
+{"id": "q155", "intent": "复合-区域产业", "query": "湖北关于海洋装备产业的政策", "golden": {"区域": "湖北", "产业分类": "海洋装备产业"}, "golden_count": 4, "notes": "全交叉"}
+{"id": "q156", "intent": "复合-区域产业", "query": "武汉关于新一代信息技术产业的政策", "golden": {"区域": "武汉", "产业分类": "新一代信息技术产业"}, "golden_count": 206, "notes": "全交叉"}
+{"id": "q157", "intent": "复合-区域产业", "query": "武汉关于高端装备制造产业的政策", "golden": {"区域": "武汉", "产业分类": "高端装备制造产业"}, "golden_count": 113, "notes": "全交叉"}
+{"id": "q158", "intent": "复合-区域产业", "query": "武汉关于节能环保产业的政策", "golden": {"区域": "武汉", "产业分类": "节能环保产业"}, "golden_count": 73, "notes": "全交叉"}
+{"id": "q159", "intent": "复合-区域产业", "query": "武汉关于新材料产业的政策", "golden": {"区域": "武汉", "产业分类": "新材料产业"}, "golden_count": 66, "notes": "全交叉"}
+{"id": "q160", "intent": "复合-区域产业", "query": "武汉关于新能源产业的政策", "golden": {"区域": "武汉", "产业分类": "新能源产业"}, "golden_count": 55, "notes": "全交叉"}
+{"id": "q161", "intent": "复合-区域产业", "query": "武汉关于生物产业的政策", "golden": {"区域": "武汉", "产业分类": "生物产业"}, "golden_count": 44, "notes": "全交叉"}
+{"id": "q162", "intent": "复合-区域产业", "query": "武汉关于新能源汽车产业的政策", "golden": {"区域": "武汉", "产业分类": "新能源汽车产业"}, "golden_count": 28, "notes": "全交叉"}
+{"id": "q163", "intent": "复合-区域产业", "query": "武汉关于航空航天产业的政策", "golden": {"区域": "武汉", "产业分类": "航空航天产业"}, "golden_count": 9, "notes": "全交叉"}
+{"id": "q164", "intent": "复合-区域产业", "query": "武汉关于海洋装备产业的政策", "golden": {"区域": "武汉", "产业分类": "海洋装备产业"}, "golden_count": 3, "notes": "全交叉"}
+{"id": "q165", "intent": "复合-部门产业", "query": "工信部门的新一代信息技术产业政策", "golden": {"部门": "工信部门", "产业分类": "新一代信息技术产业"}, "golden_count": 256, "notes": "抽样"}
+{"id": "q166", "intent": "复合-部门产业", "query": "科技部门的生物产业政策", "golden": {"部门": "科技部门", "产业分类": "生物产业"}, "golden_count": 70, "notes": "抽样"}
+{"id": "q167", "intent": "复合-部门产业", "query": "发改部门的新能源产业政策", "golden": {"部门": "发改部门", "产业分类": "新能源产业"}, "golden_count": 127, "notes": "抽样"}
+{"id": "q168", "intent": "复合-部门产业", "query": "科技部门的新一代信息技术产业政策", "golden": {"部门": "科技部门", "产业分类": "新一代信息技术产业"}, "golden_count": 278, "notes": "抽样"}
+{"id": "q169", "intent": "复合-部门产业", "query": "工信部门的高端装备制造产业政策", "golden": {"部门": "工信部门", "产业分类": "高端装备制造产业"}, "golden_count": 166, "notes": "抽样"}
+{"id": "q170", "intent": "复合-部门产业", "query": "发改部门的节能环保产业政策", "golden": {"部门": "发改部门", "产业分类": "节能环保产业"}, "golden_count": 205, "notes": "抽样"}
+{"id": "q171", "intent": "复合-区域类型", "query": "武汉的创新人才政策", "golden": {"区域": "武汉", "政策类型": "创新人才"}, "golden_count": 103, "notes": "抽样"}
+{"id": "q172", "intent": "复合-区域类型", "query": "湖北的创新资质政策", "golden": {"区域": "湖北", "政策类型": "创新资质"}, "golden_count": 330, "notes": "抽样"}
+{"id": "q173", "intent": "复合-区域类型", "query": "国家的金融政策政策", "golden": {"区域": "国家", "政策类型": "金融政策"}, "golden_count": 33, "notes": "抽样"}
+{"id": "q174", "intent": "复合-区域类型", "query": "武汉的知识产权政策", "golden": {"区域": "武汉", "政策类型": "知识产权"}, "golden_count": 2, "notes": "抽样"}
+{"id": "q175", "intent": "复合-区域类型", "query": "湖北的产业发展政策", "golden": {"区域": "湖北", "政策类型": "产业发展"}, "golden_count": 69, "notes": "抽样"}
+{"id": "q176", "intent": "复合-区域类型", "query": "国家的创新平台政策", "golden": {"区域": "国家", "政策类型": "创新平台"}, "golden_count": 199, "notes": "抽样"}
+{"id": "q177", "intent": "复合-区域文种", "query": "武汉的管理办法政策", "golden": {"区域": "武汉", "政策文种": "管理办法"}, "golden_count": 211, "notes": "抽样"}
+{"id": "q178", "intent": "复合-区域文种", "query": "湖北的实施方案政策", "golden": {"区域": "湖北", "政策文种": "实施方案"}, "golden_count": 160, "notes": "抽样"}
+{"id": "q179", "intent": "复合-区域文种", "query": "国家的发展规划政策", "golden": {"区域": "国家", "政策文种": "发展规划"}, "golden_count": 591, "notes": "抽样"}
+{"id": "q180", "intent": "复合-区域文种", "query": "武汉的若干措施政策", "golden": {"区域": "武汉", "政策文种": "若干措施"}, "golden_count": 45, "notes": "抽样"}
+{"id": "q181", "intent": "复合-区域文种", "query": "湖北的实施细则政策", "golden": {"区域": "湖北", "政策文种": "实施细则"}, "golden_count": 41, "notes": "抽样"}
+{"id": "q182", "intent": "复合-区域文种", "query": "国家的法律法规政策", "golden": {"区域": "国家", "政策文种": "法律法规"}, "golden_count": 103, "notes": "抽样"}
+{"id": "q183", "intent": "反例", "query": "国家的地方金融监管政策", "golden": {"区域": "国家", "部门": "地方金融监管"}, "golden_count": 0, "notes": "空组合"}
+{"id": "q184", "intent": "反例", "query": "武汉市知识产权局出台的政策", "golden": {"区域": "武汉", "部门": "知识产权局"}, "golden_count": 0, "notes": "空组合"}
