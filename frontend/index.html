@@ -593,6 +593,18 @@
             <label for="kbDescriptionInput">说明</label>
             <textarea id="kbDescriptionInput" rows="5" maxlength="500"></textarea>
           </div>
+          <div class="field">
+            <label for="kbStrategyInput">检索算法</label>
+            <select id="kbStrategyInput">
+              <option value="">默认（全局）</option>
+              <option value="vector">vector · 向量检索</option>
+              <option value="weighted">weighted · 元数据加权排序</option>
+              <option value="hybrid">hybrid · 混合检索</option>
+              <option value="keyword">keyword · 关键词检索</option>
+              <option value="fulltext">fulltext · 全文检索</option>
+              <option value="keyword_rank">keyword_rank · 规则重排</option>
+            </select>
+          </div>
           <p class="helper-line">创建后可在“元数据提取”标签中配置文档头部字段的解析方式。</p>
           <div class="form-actions">
             <button type="button" class="secondary-button" data-action="close-kb-editor">取消</button>
