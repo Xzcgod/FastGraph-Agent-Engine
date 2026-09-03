@@ -105,6 +105,7 @@ const elements = {
   kbNamespaceInput: document.querySelector("#kbNamespaceInput"),
   kbNameInput: document.querySelector("#kbNameInput"),
   kbDescriptionInput: document.querySelector("#kbDescriptionInput"),
+  kbStrategyInput: document.querySelector("#kbStrategyInput"),
   metadataExtractionForm: document.querySelector("#metadataExtractionForm"),
   metadataExtractionEnabledInput: document.querySelector("#metadataExtractionEnabledInput"),
   metadataExtractionSchemaNameInput: document.querySelector("#metadataExtractionSchemaNameInput"),
@@ -1324,6 +1325,7 @@ function openKnowledgeBaseEditor(kbId = "") {
   elements.kbNamespaceInput.disabled = Boolean(kb?.id);
   elements.kbNameInput.value = kb?.name || "";
   elements.kbDescriptionInput.value = kb?.description || "";
+  elements.kbStrategyInput.value = kb?.searchPolicyJson?.strategy || "";
   elements.kbEditorTitle.textContent = kb ? "编辑知识库" : "新建知识库";
   elements.kbEditorDrawer.classList.remove("hidden");
   window.setTimeout(() => elements.kbNameInput.focus(), 0);
@@ -1530,11 +1532,12 @@ async function handleMetadataExtractionSubmit(event) {
 async function handleKbSubmit(event) {
   event.preventDefault();
   const kbId = elements.kbIdInput.value;
+  const strategy = elements.kbStrategyInput.value.trim();
   const payload = {
     namespace: elements.kbNamespaceInput.value,
     name: elements.kbNameInput.value.trim(),
     description: elements.kbDescriptionInput.value.trim() || null,
-    searchPolicyJson: {},
+    searchPolicyJson: strategy ? { strategy } : {},
   };
   const path = kbId
     ? `/api/v1/admin/platform/knowledge-bases/${encodeURIComponent(kbId)}`

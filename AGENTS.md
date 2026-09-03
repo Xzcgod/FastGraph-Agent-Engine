@@ -28,7 +28,8 @@ LLM 网关: 深度对接 DeepSeek 官方 API 及自研的 Failover 高可用路�
 
 2. **知识库检索方式（关键）**
    - 知识库知识通过「工具调用」`knowledge_base_search` 进入 Agent，**绝不预检索改写用户消息**。
-   - 检索范围 `kbIds/topK/scoreThreshold` 经 LangGraph 的 `InjectedState` 从图状态注入，对 LLM 不可见。
+   - 检索参数经 LangGraph 的 `InjectedState` 注入：`topK/scoreThreshold` 对 LLM 不可见；`kb_ids` 作为「绑定范围」注入，但 `kb_id` 是 LLM 可选参数——模型可从「绑定知识库列表」（由 `agent_config._agent_instructions` 注入）中自选一个，越权未绑定 id 时回退绑定全集。
+   - 知识库级检索算法存在 `KnowledgeBase.search_policy_json.strategy`，检索未显式传 `strategy` 时按单 kb 配置解析、兜底全局默认（`retrieval/__init__.py::_resolve_strategy_name`）。
    - `rag_tool.py` 是 **async 工具**，不要改回「同步 + 线程池新事件循环」，否则与持久连接跨事件循环冲突。
 
 3. **LLM 约定**
