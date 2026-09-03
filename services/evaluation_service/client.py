@@ -113,20 +113,24 @@ class KnowledgeServiceClient:
         trace_id: str,
         metadata_filter: Dict[str, Any] | None = None,
         namespace: str | None = None,
+        strategy: str | None = None,
     ) -> List[KnowledgeSearchItem]:
-        """调用检索接口并把结果归一为 KnowledgeSearchItem 列表。"""
+        """调用检索接口并把结果归一为 KnowledgeSearchItem 列表。strategy 可选，透传给 knowledge-service 切换检索算法。"""
+        body: Dict[str, Any] = {
+            "query": query,
+            "kbIds": kb_ids,
+            "topK": top_k,
+            "minScore": score_threshold,
+            "metadataFilter": metadata_filter or {},
+            "namespace": namespace,
+        }
+        if strategy:
+            body["strategy"] = strategy
         payload = await self.request(
             "POST",
             self.config.search_path,
             trace_id=trace_id,
-            json_body={
-                "query": query,
-                "kbIds": kb_ids,
-                "topK": top_k,
-                "minScore": score_threshold,
-                "metadataFilter": metadata_filter or {},
-                "namespace": namespace,
-            },
+            json_body=body,
         )
         if not isinstance(payload, dict):
             raise KnowledgeServiceError("unexpected search payload")

@@ -22,6 +22,7 @@ from app.core.logging import logger
 from app.core.metrics import setup_metrics
 from services.knowledge_service.config import settings
 from services.knowledge_service.db import init_database, session_dependency
+from services.knowledge_service.retrieval import search
 from services.knowledge_service.security import actor_from_headers, require_service_token
 from services.knowledge_service.service import (
     archive_base,
@@ -39,7 +40,6 @@ from services.knowledge_service.service import (
     list_bases,
     list_documents,
     list_jobs,
-    search,
     update_base,
 )
 

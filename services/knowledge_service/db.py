@@ -48,6 +48,32 @@ async def init_database() -> None:
                 "ADD COLUMN IF NOT EXISTS metadata_extraction_json JSON NOT NULL DEFAULT '{}'"
             )
         )
+        # metadata 过滤下推依赖 JSONB（@> 包含 / ? 数组元素）。已有库的 metadata_json 是 json
+        # 类型，这里幂等升级为 jsonb；新库由 create_all 直接建 jsonb，本块跳过。
+        await connection.execute(
+            text(
+                "DO $$ "
+                "BEGIN "
+                "IF EXISTS (SELECT 1 FROM information_schema.columns "
+                "           WHERE table_name = 'te_knowledge_document' "
+                "             AND column_name = 'metadata_json' AND data_type = 'json') THEN "
+                "  ALTER TABLE te_knowledge_document ALTER COLUMN metadata_json TYPE jsonb USING metadata_json::jsonb; "
+                "END IF; "
+                "IF EXISTS (SELECT 1 FROM information_schema.columns "
+                "           WHERE table_name = 'td_knowledge_chunk' "
+                "             AND column_name = 'metadata_json' AND data_type = 'json') THEN "
+                "  ALTER TABLE td_knowledge_chunk ALTER COLUMN metadata_json TYPE jsonb USING metadata_json::jsonb; "
+                "END IF; "
+                "END $$;"
+            )
+        )
+        # 向量检索 HNSW 索引，避免 cosine_distance 全表扫描（幂等）。
+        await connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_knowledge_chunk_embedding_hnsw "
+                "ON td_knowledge_chunk USING hnsw (embedding vector_cosine_ops)"
+            )
+        )
 
 
 async def session_dependency() -> AsyncIterator[AsyncSession]:

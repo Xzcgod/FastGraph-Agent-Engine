@@ -73,6 +73,10 @@ class Settings:
         )
         self.ingest_concurrency = max(1, int(os.getenv("KNOWLEDGE_INGEST_CONCURRENCY", "2")))
         self.ingest_rate_limit = os.getenv("KNOWLEDGE_INGEST_RATE_LIMIT", "10000 per hour")
+        # 检索算法策略：默认 vector；请求可用 strategy 字段覆盖，便于多种算法 A/B 评估。
+        self.default_search_strategy = os.getenv("KNOWLEDGE_DEFAULT_SEARCH_STRATEGY", "vector").strip().lower()
+        # 向量召回放大倍数：取 top_k * factor 候选后再做 metadata/rerank，避免过滤后不足 topK。
+        self.search_oversample_factor = max(1, min(int(os.getenv("KNOWLEDGE_SEARCH_OVERSAMPLE_FACTOR", "8")), 100))
         self.allowed_namespaces = [
             item.strip()
             for item in os.getenv("KNOWLEDGE_ALLOWED_NAMESPACES", "default,policy,customer_service").split(",")
