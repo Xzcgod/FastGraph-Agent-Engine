@@ -42,6 +42,12 @@ async def init_database() -> None:
     async with engine.begin() as connection:
         await connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await connection.run_sync(SQLModel.metadata.create_all)
+        await connection.execute(
+            text(
+                "ALTER TABLE te_knowledge_base "
+                "ADD COLUMN IF NOT EXISTS metadata_extraction_json JSON NOT NULL DEFAULT '{}'"
+            )
+        )
 
 
 async def session_dependency() -> AsyncIterator[AsyncSession]:

@@ -26,6 +26,10 @@ class KnowledgeBase(SQLModel, table=True):
     description: str | None = Field(default=None, sa_column=Column(Text))
     status: str = Field(default="active", max_length=32, index=True)
     search_policy_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    metadata_extraction_json: Dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False),
+    )
     created_by: str = Field(default="system", max_length=128)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)

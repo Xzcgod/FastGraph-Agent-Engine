@@ -223,6 +223,56 @@ class AgentConfigService:
         logger.info("platform_agent_status_changed", agent_id=agent.id, status=requested_status, actor_id=actor.id)
         return self._to_platform_response(agent)
 
+    async def unlink_knowledge_base(self, kb_id: str, actor: User) -> int:
+        """Remove a deleted knowledge base from every Agent configuration."""
+
+        normalized_kb_id = str(kb_id).strip()
+        if not normalized_kb_id:
+            return 0
+
+        def work() -> int:
+            changed_count = 0
+            with Session(database_service.engine) as session:
+                agents = session.exec(select(PlatformAgent)).all()
+                for agent in agents:
+                    knowledge = self._knowledge_config(agent)
+                    if normalized_kb_id not in knowledge.kb_ids:
+                        continue
+                    remaining_ids = [item for item in knowledge.kb_ids if item != normalized_kb_id]
+                    updated_knowledge = knowledge.model_copy(
+                        update={
+                            "enabled": knowledge.enabled and bool(remaining_ids),
+                            "kb_ids": remaining_ids,
+                        }
+                    )
+                    config = dict(agent.config_json or {})
+                    config["knowledge"] = updated_knowledge.model_dump(by_alias=True)
+                    agent.config_json = config
+                    agent.version += 1
+                    agent.updated_at = utc_now()
+                    session.add(agent)
+                    changed_count += 1
+                if changed_count:
+                    session.commit()
+            return changed_count
+
+        try:
+            changed_count = await asyncio.to_thread(work)
+        except SQLAlchemyError as exc:
+            logger.exception("platform_agent_knowledge_unlink_failed", error=str(exc), kb_id=normalized_kb_id)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to unlink deleted knowledge base from Agents",
+            ) from exc
+        if changed_count:
+            logger.info(
+                "platform_agent_knowledge_unlinked",
+                kb_id=normalized_kb_id,
+                agent_count=changed_count,
+                actor_id=actor.id,
+            )
+        return changed_count
+
     async def list_public_agents(self) -> List[PublicAgentItem]:
         """列出所有已发布（published）的 Agent，供普通用户选择调用。
 

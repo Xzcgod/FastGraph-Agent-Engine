@@ -62,6 +62,15 @@ scripts\start-local.cmd    # knowledge-service、主后端、前端
 
 访问地址：前端控制台 http://127.0.0.1:5174 · API 文档 http://localhost:8000/docs · Grafana http://localhost:3000
 
+## 🌐 线上部署
+
+生产环境已部署于阿里云轻量服务器，实际访问地址：
+
+- **控制台**：http://47.122.117.96/
+- **部署说明**：`docs/部署-阿里云轻量服务器.md`
+
+> 生产运行在 `slim-deploy` 分支（瘦身版：仅容器化数据库、embedding/LLM 走外部 API、nginx 反代，已移除监控三件套与评估模块）；本地开发主分支为 `main`。
+
 ## 📚 项目文档
 
 - 📖 各目录结构说明与阅读路线：`app/README.md`、`services/README.md` 及各自子目录

@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import json
 import re
 from collections import OrderedDict
 from math import ceil
@@ -23,6 +22,11 @@ from app.core.logging import logger
 from services.knowledge_service.config import settings
 from services.knowledge_service.db import AsyncSessionLocal
 from services.knowledge_service.extractors import extract_text_from_bytes
+from services.knowledge_service.metadata import (
+    default_metadata_extraction_config,
+    normalize_metadata,
+    normalize_metadata_extraction_config,
+)
 from services.knowledge_service.models import (
     KnowledgeBase,
     KnowledgeChunk,
@@ -68,21 +72,6 @@ def sha256_text(value: str) -> str:
 
 def problem(http_status: int, code: str, message: str) -> HTTPException:
     return HTTPException(status_code=http_status, detail={"code": code, "message": message})
-
-
-def normalize_metadata(value: str | dict[str, Any] | None) -> Dict[str, Any]:
-    if value is None:
-        return {}
-    if isinstance(value, dict):
-        return value
-    try:
-        parsed = json.loads(value)
-    except json.JSONDecodeError as exc:
-        logger.exception("knowledge_metadata_json_invalid", error=str(exc))
-        raise problem(status.HTTP_400_BAD_REQUEST, "INVALID_METADATA", "metadata must be JSON object") from exc
-    if not isinstance(parsed, dict):
-        raise problem(status.HTTP_400_BAD_REQUEST, "INVALID_METADATA", "metadata must be JSON object")
-    return parsed
 
 
 def normalize_namespace(value: Any) -> str:
@@ -351,6 +340,7 @@ def kb_item(kb: KnowledgeBase, document_count: int = 0, chunk_count: int = 0, fa
         "description": kb.description,
         "status": kb.status,
         "searchPolicyJson": kb.search_policy_json,
+        "metadataExtractionJson": kb.metadata_extraction_json or default_metadata_extraction_config(),
         "documentCount": document_count,
         "chunkCount": chunk_count,
         "failedJobCount": failed_job_count,
@@ -499,7 +489,7 @@ async def create_ingest_job(
     file_source_hash: str,
     actor: str,
     trace_id: str | None,
-) -> tuple[str, str]:
+) -> tuple[str, str, str, Dict[str, Any]]:
     async with AsyncSessionLocal() as session:
         kb = await get_kb(session, kb_id)
         now = utc_now()
@@ -526,7 +516,7 @@ async def create_ingest_job(
         await session.flush()
         await add_step(session, job, "validate", "succeeded", {"fileName": file_name, "sizeBytes": size_bytes})
         await session.commit()
-        return kb.id, job.id
+        return kb.id, job.id, kb.namespace, kb.metadata_extraction_json or default_metadata_extraction_config()
 
 
 async def record_job_step(
@@ -885,6 +875,7 @@ async def create_base(session: AsyncSession, payload: Dict[str, Any], actor: str
         name=name[:255],
         description=payload.get("description"),
         search_policy_json=payload.get("searchPolicyJson") or {},
+        metadata_extraction_json=normalize_metadata_extraction_config(payload.get("metadataExtractionJson")),
         created_by=actor,
     )
     session.add(kb)
@@ -909,6 +900,8 @@ async def update_base(session: AsyncSession, kb_id: str, payload: Dict[str, Any]
         if not isinstance(policy, dict):
             raise problem(status.HTTP_400_BAD_REQUEST, "INVALID_POLICY", "searchPolicyJson must be object")
         kb.search_policy_json = policy
+    if "metadataExtractionJson" in payload:
+        kb.metadata_extraction_json = normalize_metadata_extraction_config(payload.get("metadataExtractionJson"))
     kb.updated_at = utc_now()
     session.add(kb)
     await session.commit()
@@ -1052,7 +1045,7 @@ async def ingest_file(
     failed_step_name = "validate"
 
     try:
-        resolved_kb_id, job_id = await create_ingest_job(
+        resolved_kb_id, job_id, kb_namespace, metadata_extraction_config = await create_ingest_job(
             kb_id,
             file_name=file_name,
             mime_type=mime_type,
@@ -1064,7 +1057,13 @@ async def ingest_file(
             trace_id=trace_id,
         )
         failed_step_name = "parse"
-        extracted = await asyncio.to_thread(extract_text_from_bytes, file_name, mime_type, body)
+        extracted = await asyncio.to_thread(
+            extract_text_from_bytes,
+            file_name,
+            mime_type,
+            body,
+            metadata_extraction_config,
+        )
         content = str(extracted.get("contentText") or "").strip()
         if not content:
             raise problem(status.HTTP_400_BAD_REQUEST, "EMPTY_DOCUMENT", "document has no extractable text")
@@ -1076,8 +1075,17 @@ async def ingest_file(
         )
 
         normalized_title = (title or str(extracted.get("title") or file_name)).strip()[:512] or file_name
-        metadata_json = normalize_metadata(metadata)
-        metadata_json.update({"blobSha256": blob_hash, "source": "upload"})
+        metadata_json = normalize_metadata(
+            metadata,
+            extracted_metadata=extracted.get("metadata"),
+            file_name=file_name,
+            extraction_config=metadata_extraction_config,
+            ingest_fields={
+                "blobSha256": blob_hash,
+                "source": "upload",
+                "metadataSource": extracted.get("metadataSource"),
+            },
+        )
         content_hash = sha256_text(f"{normalized_title}\n{content}")
         failed_step_name = "split"
         document_state = await get_existing_document_state(resolved_kb_id, file_source_hash)
@@ -1379,6 +1387,15 @@ def metadata_matches(expected: Dict[str, Any], document_metadata: Dict[str, Any]
     if not expected:
         return True
     combined = {**document_metadata, **chunk_metadata}
+    if isinstance(document_metadata.get("common"), dict):
+        # Keep legacy flat filters working while new callers can use nested paths.
+        aliases = {
+            **document_metadata.get("_raw", {}),
+            **document_metadata.get("common", {}),
+            **document_metadata.get("domain", {}),
+        }
+        aliases.update(chunk_metadata)
+        combined = {**aliases, **combined}
     return metadata_subset(expected, combined)
 
 

@@ -63,6 +63,19 @@ dev-embedding:
 	APP_ENV=development $(DOCKER_COMPOSE) --env-file $$ENV_FILE up -d ollama
 	@$(DOCKER_COMPOSE) --env-file .env.development exec ollama ollama pull bge-m3
 
+# Evaluation commands
+eval:
+	@echo "Running retrieval evaluation"
+	@bash -c "source scripts/set_env.sh ${ENV:-development} && python -m services.evaluation_service.main"
+
+eval-quick:
+	@echo "Running evaluation with default settings"
+	@bash -c "source scripts/set_env.sh ${ENV:-development} && python -m services.evaluation_service.main --limit 8"
+
+eval-no-report:
+	@echo "Running retrieval evaluation without generating report"
+	@bash -c "source scripts/set_env.sh ${ENV:-development} && python -m services.evaluation_service.main --limit 8 --no-report"
+
 lint:
 	ruff check .
 
