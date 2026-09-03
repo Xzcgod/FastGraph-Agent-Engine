@@ -69,6 +69,7 @@ class KnowledgeChunk(SQLModel, table=True):
     document_id: str = Field(foreign_key="te_knowledge_document.id", index=True)
     chunk_index: int = Field(nullable=False)
     content_text: str = Field(sa_column=Column(Text, nullable=False))
+    search_text: str | None = Field(default=None, sa_column=Column(Text))
     content_hash: str = Field(nullable=False, max_length=128, index=True)
     token_count: int | None = Field(default=None)
     metadata_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB, nullable=False))

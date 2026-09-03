@@ -26,6 +26,7 @@ from services.knowledge_service.metadata import (
     default_metadata_extraction_config,
     normalize_metadata,
     normalize_metadata_extraction_config,
+    tokenize_for_search,
 )
 from services.knowledge_service.models import (
     KnowledgeBase,
@@ -631,6 +632,7 @@ async def complete_ingest_job(
                         document_id=document.id,
                         chunk_index=index,
                         content_text=chunk,
+                        search_text=tokenize_for_search(chunk),
                         content_hash=sha256_text(chunk),
                         token_count=max(1, len(chunk) // 4),
                         metadata_json={

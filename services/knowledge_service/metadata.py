@@ -6,10 +6,10 @@ import json
 from copy import deepcopy
 from typing import Any, Dict
 
+import jieba
 from fastapi import HTTPException, status
 
 from app.core.logging import logger
-
 
 SYSTEM_METADATA_KEYS = {"blobSha256", "source", "metadataSource", "relativePath", "fileName"}
 METADATA_EXTRACTION_FORMATS = {"markdown_fields", "yaml_front_matter", "none"}
@@ -225,3 +225,15 @@ def normalize_metadata(
 
 def _is_canonical(value: Dict[str, Any]) -> bool:
     return all(isinstance(value.get(key), dict) for key in ("_schema", "common", "domain", "_raw"))
+
+
+def tokenize_for_search(text: str) -> str:
+    """用 jieba 分词后拼成空格分隔字符串，供 PG to_tsvector('simple', ...) 建全文索引。
+
+    simple 配置按空格/标点切词，对中文无分词能力，故用 jieba 在 Python 侧预先
+    分词。入库时写入 search_text 列，检索时对 query 同样分词后转 tsquery。
+    """
+    if not text:
+        return ""
+    words = [word.strip() for word in jieba.cut(text) if word.strip()]
+    return " ".join(words)

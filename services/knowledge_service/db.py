@@ -83,6 +83,19 @@ async def init_database() -> None:
                 "ON td_knowledge_chunk USING gin (content_text gin_trgm_ops)"
             )
         )
+        # 全文检索（fulltext 策略）：search_text 列（jieba 分词后空格分隔）+ tsvector 表达式索引。
+        await connection.execute(
+            text(
+                "ALTER TABLE td_knowledge_chunk "
+                "ADD COLUMN IF NOT EXISTS search_text TEXT"
+            )
+        )
+        await connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_knowledge_chunk_search_tsv "
+                "ON td_knowledge_chunk USING gin (to_tsvector('simple', search_text))"
+            )
+        )
 
 
 async def session_dependency() -> AsyncIterator[AsyncSession]:
