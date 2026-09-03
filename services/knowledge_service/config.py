@@ -94,6 +94,8 @@ class Settings:
         # 混合检索（hybrid 策略）参数。
         self.hybrid_keyword_limit = max(1, int(os.getenv("KNOWLEDGE_HYBRID_KEYWORD_LIMIT", "20")))
         self.hybrid_similarity_threshold = float(os.getenv("KNOWLEDGE_HYBRID_SIMILARITY_THRESHOLD", "0.2"))
+        # hybrid 关键词加分权重：query 与 chunk 的字符 n-gram 重叠率乘以此系数。
+        self.search_keyword_weight = float(os.getenv("KNOWLEDGE_SEARCH_KEYWORD_WEIGHT", "0.1"))
         self.allowed_namespaces = [
             item.strip()
             for item in os.getenv("KNOWLEDGE_ALLOWED_NAMESPACES", "default,policy,customer_service").split(",")
