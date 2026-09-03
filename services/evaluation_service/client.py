@@ -114,8 +114,9 @@ class KnowledgeServiceClient:
         metadata_filter: Dict[str, Any] | None = None,
         namespace: str | None = None,
         strategy: str | None = None,
+        rerank: bool | None = None,
     ) -> List[KnowledgeSearchItem]:
-        """调用检索接口并把结果归一为 KnowledgeSearchItem 列表。strategy 可选，透传给 knowledge-service 切换检索算法。"""
+        """调用检索接口并把结果归一为 KnowledgeSearchItem 列表。strategy/rerank 可选，透传给 knowledge-service。"""
         body: Dict[str, Any] = {
             "query": query,
             "kbIds": kb_ids,
@@ -126,6 +127,8 @@ class KnowledgeServiceClient:
         }
         if strategy:
             body["strategy"] = strategy
+        if rerank is not None:
+            body["rerank"] = rerank
         payload = await self.request(
             "POST",
             self.config.search_path,
