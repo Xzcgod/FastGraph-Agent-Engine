@@ -310,6 +310,11 @@ AI 负责把同一政策扩成多种自然问法：
 - `AnchorHitRate`
 - `ChunkRecall@K`
 
+### 速度级
+
+- `LatencyMs`：单次检索端到端延迟（毫秒），逐条记录，汇总 avg / p50 / p95 / max。
+- 用于回归 HNSW 索引、oversample、rerank 等对检索耗时的实际影响。
+
 ## 推荐初始门槛
 
 先用这组做第一版回归门槛：
