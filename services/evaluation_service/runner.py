@@ -1,4 +1,15 @@
-"""Retrieval evaluation runner."""
+"""检索评估核心 runner。
+
+黑盒评测 knowledge-service 的检索质量：给定用例（RetrievalCase）里的 query 与
+检索请求，调用内部检索接口拿到返回列表，再与用例声明的 ground truth（文档 id /
+标题 / 源引用 / 元数据过滤）比对，逐条计算文档级、片段级与业务级指标，最后汇总
+成 RetrievalReport 落盘。
+
+评测口径（详见 retrieval_eval_design.md）：
+- 文档级：Recall@K / MRR / nDCG@K / Hit@K / Hit@1。
+- 片段级：chunkAnchors 命中率（返回片段是否含关键锚点）。
+- 业务级：本地优先（武汉 > 湖北 > 国家）、时效（年份越新越好）、产业相关性、错区域惩罚、负例拒答。
+"""
 
 from __future__ import annotations
 
@@ -70,6 +81,7 @@ def _normalize_list(value: Any) -> list[str]:
 
 
 def _normalize_region_label(value: Any) -> str:
+    """把任意区域表述归一为「武汉 / 湖北 / 国家 / 其他」四档。"""
     text = _normalize_text(value)
     if "武汉" in text:
         return "武汉"
@@ -81,6 +93,7 @@ def _normalize_region_label(value: Any) -> str:
 
 
 def _resolve_region(metadata: Dict[str, Any]) -> str:
+    """从文档元数据解析区域标签，缺省按国家处理。"""
     view = _metadata_view(metadata)
     region = _normalize_text(view.get("region") or view.get("区域"))
     if region:
@@ -119,6 +132,7 @@ def _metadata_view(metadata: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def metadata_subset(expected: Any, actual: Any) -> bool:
+    """判断 expected 是否 actual 的（递归）子集：dict 逐键递归，list 逐元素包含，标量相等。"""
     if isinstance(expected, dict):
         if not isinstance(actual, dict):
             return False
@@ -129,6 +143,7 @@ def metadata_subset(expected: Any, actual: Any) -> bool:
 
 
 def _match_expected_value(actual: Any, expected: Any) -> bool:
+    """宽松匹配元数据字段值：期望为集合则看交集，标量则看相等或包含（归一化后）。"""
     if isinstance(expected, (list, tuple, set)):
         expected_values = {_normalize_text(item) for item in expected if _normalize_text(item)}
         if not expected_values:
@@ -149,6 +164,11 @@ def _match_expected_value(actual: Any, expected: Any) -> bool:
 
 
 def document_matches_filter(document: KnowledgeDocumentRecord, golden: Dict[str, Any]) -> bool:
+    """判断文档是否满足 golden 里声明的元数据过滤条件。
+
+    golden 中除保留键（docIds/titles/chunkAnchors 等）外的键都视为过滤条件；
+    区域/部门/产业/政策类型/支持方式/文种等字段有专门的归一化匹配逻辑。
+    """
     metadata = document.metadata_json or {}
     view = _metadata_view(metadata)
     title = _normalize_text(document.title or view.get("title"))
@@ -206,6 +226,7 @@ def document_matches_filter(document: KnowledgeDocumentRecord, golden: Dict[str,
 
 
 def _golden_filters(golden: Dict[str, Any]) -> Dict[str, Any]:
+    """取出 golden 里的过滤条件：优先读 filters 键，否则取排除保留键后的其余字段。"""
     filters = golden.get("filters")
     if isinstance(filters, dict):
         return filters
@@ -253,6 +274,7 @@ def _case_request(case: RetrievalCase) -> Dict[str, Any]:
 
 
 def _metadata_value(metadata: Dict[str, Any], *paths: str) -> Any:
+    """按点分路径（如 common.publishedAt）依次取元数据值，支持 flat 键回退（走 _metadata_view）。"""
     for path in paths:
         current: Any = metadata
         for part in path.split("."):
@@ -278,6 +300,7 @@ def _request_value(request: Dict[str, Any], *keys: str) -> Any:
 
 
 def _document_year(document: KnowledgeDocumentRecord) -> int | None:
+    """从文档元数据的发布日期字段提取 4 位年份，取不到返回 None。"""
     value = _metadata_value(document.metadata_json or {}, "common.publishedAt", "publishedAt", "publishTime", "发布时间")
     match = re.search(r"(19|20)\d{2}", str(value or ""))
     return int(match.group(0)) if match else None
@@ -301,6 +324,7 @@ def _golden_value(case: RetrievalCase, *keys: str) -> Any:
 
 
 def _search_request(case: RetrievalCase, default_kb_ids: Sequence[str], config: RetrievalEvalConfig) -> Dict[str, Any]:
+    """组装检索请求体：kbIds / topK / scoreThreshold 依次取用例 request → 用例字段 → 全局配置。"""
     request = _case_request(case)
     kb_ids = _request_value(request, "kbIds", "kb_ids") or case.kb_ids or list(default_kb_ids)
     return {
@@ -317,6 +341,7 @@ def _search_request(case: RetrievalCase, default_kb_ids: Sequence[str], config: 
 
 
 def _quality_requirements(case: RetrievalCase, config: RetrievalEvalConfig) -> Dict[str, float]:
+    """取业务级指标阈值：允许用例 request 覆盖全局配置的本地/时效/锚点/产业/负例阈值。"""
     request = _case_request(case)
     return {
         "local": float(request.get("localPriorityThreshold", config.local_priority_threshold)),
@@ -328,6 +353,7 @@ def _quality_requirements(case: RetrievalCase, config: RetrievalEvalConfig) -> D
 
 
 def dedupe_search_items(items: Sequence[KnowledgeSearchItem]) -> list[KnowledgeSearchItem]:
+    """按 documentId 去重，保留首次出现的检索结果。"""
     seen: set[str] = set()
     unique: list[KnowledgeSearchItem] = []
     for item in items:
@@ -339,6 +365,11 @@ def dedupe_search_items(items: Sequence[KnowledgeSearchItem]) -> list[KnowledgeS
 
 
 def load_cases(path: Path, case_ids: set[str] | None = None, limit: int | None = None) -> list[RetrievalCase]:
+    """读取 JSONL 用例文件。
+
+    每行一条 JSON；跳过空行与 `#` 注释行；兼容 snake_case 字段名（case_id/kb_ids/
+    top_k/score_threshold 等）并归一为 camelCase；支持按 case_ids 过滤与 limit 截断。
+    """
     if not path.is_file():
         raise FileNotFoundError(f"cases file not found: {path}")
 
@@ -380,6 +411,7 @@ async def build_catalog(
     kb_ids: Sequence[str],
     page_size: int,
 ) -> dict[str, KnowledgeDocumentRecord]:
+    """遍历知识库的文档列表接口，按 documentId 建全量目录索引，供 ground truth 解析与指标打分用。"""
     catalog: dict[str, KnowledgeDocumentRecord] = {}
     for kb_id in kb_ids:
         page = 1
@@ -400,6 +432,11 @@ def resolve_ground_truth_ids(
     case: RetrievalCase,
     catalog: dict[str, KnowledgeDocumentRecord],
 ) -> tuple[list[str], int]:
+    """把用例声明的 ground truth 解析成目录里的 documentId 列表。
+
+    三种定位方式按优先级：显式 docIds > 标题/源引用匹配 > 元数据过滤匹配。
+    返回 (id 列表, 期望命中数)。
+    """
     explicit_ids = _golden_document_ids(case)
     if explicit_ids:
         ids = []
@@ -437,6 +474,17 @@ def evaluate_retrieved_docs(
     catalog: Dict[str, KnowledgeDocumentRecord] | None = None,
     quality_requirements: Dict[str, float] | None = None,
 ) -> RetrievalCaseResult:
+    """对单条用例的检索结果打分，产出 RetrievalCaseResult。
+
+    计算文档级（precision/recall/MRR/nDCG/Hit@K/Hit@1）、片段级（锚点命中）、
+    业务级（本地优先/时效/产业相关性/错区域）指标，再按用例意图判定 pass/fail：
+
+    - 负例（answerable=False）：期望不返回或首位低分；
+    - golden 文档未进目录：判定失败（GOLDEN_DOCUMENT_NOT_IN_CATALOG）；
+    - 元数据过滤意图（区域/政策类型等）：要求 Hit@1 且 precision≥0.6；
+    - 其余：Hit@K 即通过。
+    通过后若触发质量门槛（本地/时效/产业阈值不达标），改判失败并记录原因。
+    """
     unique_items = dedupe_search_items(retrieved_items)
     retrieved_ids = [item.document_id for item in unique_items]
     matched_ids = [doc_id for doc_id in retrieved_ids if doc_id in set(ground_truth_ids)]
@@ -565,6 +613,7 @@ def _ndcg_at_k(
     golden_ids: set[str],
     catalog: Dict[str, KnowledgeDocumentRecord],
 ) -> float:
+    """计算 nDCG@K。文档相关性等级：显式 relevanceGrades > golden 命中=1.0 > 元数据过滤匹配=1.0 > 其余=0.0。"""
     configured_grades = case.relevance_grades or {}
     if not configured_grades and isinstance(case.golden, dict):
         configured_grades = case.golden.get("relevanceGrades") or case.golden.get("relevance_grades") or {}
@@ -589,6 +638,7 @@ def _ndcg_at_k(
 
 
 def _chunk_anchor_hits(items: Sequence[KnowledgeSearchItem], anchors: Sequence[str]) -> list[str]:
+    """返回在任意检索结果的 contentExcerpt 中命中的锚点列表（归一化后子串匹配）。"""
     hits = []
     excerpts = [_normalize_text(item.content_excerpt) for item in items]
     for anchor in anchors:
@@ -599,6 +649,7 @@ def _chunk_anchor_hits(items: Sequence[KnowledgeSearchItem], anchors: Sequence[s
 
 
 def _expected_region(case: RetrievalCase) -> str | None:
+    """推断用例期望的区域：优先 scenario/golden 显式声明，否则按预期行为（本地优先）默认武汉。"""
     explicit = _scenario_value(case, "region", "区域")
     explicit = explicit or _golden_value(case, "region", "区域")
     if explicit:
@@ -610,6 +661,7 @@ def _expected_region(case: RetrievalCase) -> str | None:
 
 
 def _region_rank(value: str) -> int:
+    """区域优先级权重：武汉(3) > 湖北(2) > 国家(1) > 其他(0)。"""
     return {"武汉": 3, "湖北": 2, "国家": 1}.get(value, 0)
 
 
@@ -624,6 +676,8 @@ def _local_priority_score(
     catalog: Dict[str, KnowledgeDocumentRecord],
     expected_region: str | None,
 ) -> float:
+    """本地优先得分（0~1）。显式指定区域时按硬命中给分，否则按区域权重比例折减，
+    再以 log 折扣位置加权求和。目录中若不存在更高优先级区域则自动降档对齐。"""
     if not items or not expected_region:
         return 0.0
     explicit_region = _scenario_value(case, "region", "区域") or _golden_value(case, "region", "区域")
@@ -648,6 +702,8 @@ def _freshness_score(
     case: RetrievalCase,
     catalog: Dict[str, KnowledgeDocumentRecord],
 ) -> float:
+    """时效得分（0~1）。以用例期望年份或返回结果最新年份为基准，每差一年扣 0.2（5 年线性衰减），
+    再以 log 折扣位置加权求和。"""
     if not items:
         return 0.0
     expected_year = _scenario_value(case, "year", "publishYear", "publishedYear", "年份")
@@ -673,6 +729,7 @@ def _wrong_region_count(
     catalog: Dict[str, KnowledgeDocumentRecord],
     expected_region: str | None,
 ) -> int:
+    """统计返回结果里「区域不对」的条数：显式区域时按不等于期望区域计，否则按权重低于期望档位计。"""
     if not expected_region:
         return 0
     expected_rank = _region_rank(expected_region)
@@ -687,6 +744,7 @@ def _industry_relevance_score(
     case: RetrievalCase,
     catalog: Dict[str, KnowledgeDocumentRecord],
 ) -> float:
+    """产业相关性得分（0~1）。用例声明目标产业时，按每条结果是否命中该产业给分并位置加权。"""
     expected = _scenario_value(case, "industry", "产业分类") or _golden_value(case, "industry", "产业分类")
     expected_values = _normalize_list(expected)
     if not items or not expected_values:
@@ -707,6 +765,8 @@ def _case_weight(priority: int) -> int:
 
 
 def aggregate_summary(results: Sequence[RetrievalCaseResult]) -> RetrievalSummary:
+    """把逐条结果汇总成全局指标：各项文档级/业务级得分取均值，负例单独算 no_answer_accuracy，
+    pass 率按 priority 加权（priority 1 权重最高）。"""
     if not results:
         return RetrievalSummary()
 
@@ -779,6 +839,11 @@ def group_by_tag(results: Sequence[RetrievalCaseResult]) -> dict[str, RetrievalS
 
 
 async def run_retrieval_eval(config: RetrievalEvalConfig) -> RetrievalReport:
+    """评测主流程：加载用例 → 收集知识库 → 建目录 → 逐条检索+打分 → 汇总 → 写报告。
+
+    请求按信号量串行（默认并发 1，配合 request_interval_seconds 限流）；单条失败降级为
+    REQUEST_ERROR 结果而不是中断整个评测。
+    """
     if not config.knowledge_service_token:
         raise ValueError("EVAL_KNOWLEDGE_SERVICE_TOKEN or KNOWLEDGE_SERVICE_TOKEN is required")
 

@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""CLI for retrieval evaluation."""
+"""检索评估 CLI 入口。
+
+用法示例（详见 README）：
+    python -m services.evaluation_service.main --kb-id <知识库ID>
+    python -m services.evaluation_service.main --kb-id <ID> --limit 8 --no-report
+"""
 
 from __future__ import annotations
 
@@ -15,6 +20,7 @@ from services.evaluation_service.settings import RetrievalEvalConfig
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """构建命令行解析器，所有参数均对应 RetrievalEvalConfig 的覆盖项。"""
     parser = argparse.ArgumentParser(description="Retrieval evaluation runner for knowledge-service.")
     parser.add_argument(
         "--cases",
@@ -108,6 +114,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _merge_list_values(values: list[str] | None) -> list[str]:
+    """合并可重复参数与逗号分隔值（如 --kb-id a --kb-id b,c），去重保序。"""
     merged: list[str] = []
     for value in values or []:
         for piece in str(value).split(","):
@@ -118,6 +125,7 @@ def _merge_list_values(values: list[str] | None) -> list[str]:
 
 
 def build_config(args: argparse.Namespace) -> RetrievalEvalConfig:
+    """把解析后的命令行参数覆盖到默认配置上（仅覆盖显式传入项）。"""
     config = RetrievalEvalConfig()
     if args.cases_path is not None:
         config.cases_path = args.cases_path

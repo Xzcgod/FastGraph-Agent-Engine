@@ -49,8 +49,9 @@ DEFAULT_OUTPUT_DIR = SERVICE_ROOT / "results" / "retrieval"
 
 @dataclass(slots=True)
 class RetrievalEvalConfig:
-    """Configuration for retrieval evaluation."""
+    """检索评估配置。所有字段均可被 EVAL_* 环境变量覆盖，详见 README「环境变量」节。"""
 
+    # knowledge-service 连接与鉴权
     knowledge_service_base_url: str = field(
         default_factory=lambda: os.getenv(
             "EVAL_KNOWLEDGE_SERVICE_BASE_URL",
@@ -70,12 +71,14 @@ class RetrievalEvalConfig:
             "/internal/v1/kb/bases/{kb_id}/documents",
         )
     )
+    # 用例与输出
     cases_path: Path = field(
         default_factory=lambda: Path(os.getenv("EVAL_CASES_PATH", str(DEFAULT_CASES_PATH)))
     )
     output_dir: Path = field(
         default_factory=lambda: Path(os.getenv("EVAL_OUTPUT_DIR", str(DEFAULT_OUTPUT_DIR)))
     )
+    # 检索默认参数（用例未指定时生效）
     default_kb_ids: list[str] = field(
         default_factory=lambda: _parse_list(
             os.getenv("EVAL_KB_IDS") or os.getenv("EVAL_KB_ID"),
@@ -89,6 +92,7 @@ class RetrievalEvalConfig:
     )
     timeout_seconds: float = field(default_factory=lambda: _parse_float(os.getenv("EVAL_TIMEOUT_SECONDS"), 30.0))
     document_page_size: int = field(default_factory=lambda: _parse_int(os.getenv("EVAL_DOCUMENT_PAGE_SIZE"), 200))
+    # 业务级指标判定阈值
     local_priority_threshold: float = field(
         default_factory=lambda: _parse_float(os.getenv("EVAL_LOCAL_PRIORITY_THRESHOLD"), 0.8)
     )
@@ -104,6 +108,7 @@ class RetrievalEvalConfig:
     negative_max_score: float = field(
         default_factory=lambda: _parse_float(os.getenv("EVAL_NEGATIVE_MAX_SCORE"), 0.35)
     )
+    # 运行时控制
     generate_report: bool = True
     limit: int | None = field(default=None)
     case_ids: list[str] = field(default_factory=list)
