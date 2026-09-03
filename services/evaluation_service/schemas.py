@@ -147,6 +147,7 @@ class RetrievalCaseResult(BaseModel):
     tags: List[str] = Field(default_factory=list)
     notes: Optional[str] = None
     error: Optional[str] = None
+    latency_ms: Optional[float] = None
 
 
 class RetrievalSummary(BaseModel):
@@ -172,6 +173,10 @@ class RetrievalSummary(BaseModel):
     hit_at_1_rate: float = 0.0
     no_answer_accuracy: float = 0.0
     golden_count_mismatch_rate: float = 0.0
+    latency_ms_avg: float = 0.0
+    latency_ms_p50: float = 0.0
+    latency_ms_p95: float = 0.0
+    latency_ms_max: float = 0.0
 
 
 class RetrievalReport(BaseModel):

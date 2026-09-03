@@ -48,6 +48,10 @@ def render_markdown(report: RetrievalReport) -> str:
     lines.append(f"- Hit@1: {summary.hit_at_1_rate:.3f}")
     lines.append(f"- No-answer accuracy: {summary.no_answer_accuracy:.3f}")
     lines.append(f"- Golden count mismatch rate: {summary.golden_count_mismatch_rate:.3f}")
+    lines.append(f"- Latency avg: {summary.latency_ms_avg:.1f} ms")
+    lines.append(f"- Latency p50: {summary.latency_ms_p50:.1f} ms")
+    lines.append(f"- Latency p95: {summary.latency_ms_p95:.1f} ms")
+    lines.append(f"- Latency max: {summary.latency_ms_max:.1f} ms")
     lines.append("")
 
     if report.by_intent:

@@ -9,6 +9,7 @@
 - 文档级：Recall@K / MRR / nDCG@K / Hit@K / Hit@1。
 - 片段级：chunkAnchors 命中率（返回片段是否含关键锚点）。
 - 业务级：本地优先（武汉 > 湖北 > 国家）、时效（年份越新越好）、产业相关性、错区域惩罚、负例拒答。
+- 速度级：单次检索端到端延迟（latency_ms），汇总 avg / p50 / p95 / max。
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 from collections import defaultdict
 from math import log2
 from pathlib import Path
@@ -765,6 +767,15 @@ def _case_weight(priority: int) -> int:
     return max(1, 4 - priority)
 
 
+def _percentile(values: Sequence[float], pct: float) -> float:
+    """返回 values 的 pct 分位数（0~100）。用最近秩法，空序列返回 0.0。"""
+    sorted_values = sorted(value for value in values if value is not None)
+    if not sorted_values:
+        return 0.0
+    rank = int(round(pct / 100.0 * (len(sorted_values) - 1)))
+    return float(sorted_values[rank])
+
+
 def aggregate_summary(results: Sequence[RetrievalCaseResult]) -> RetrievalSummary:
     """把逐条结果汇总成全局指标：各项文档级/业务级得分取均值，负例单独算 no_answer_accuracy，
     pass 率按 priority 加权（priority 1 权重最高）。"""
@@ -788,6 +799,8 @@ def aggregate_summary(results: Sequence[RetrievalCaseResult]) -> RetrievalSummar
         if total_weight
         else 0.0
     )
+
+    latencies = [item.latency_ms for item in results if item.latency_ms is not None]
 
     return RetrievalSummary(
         case_count=len(results),
@@ -814,6 +827,10 @@ def aggregate_summary(results: Sequence[RetrievalCaseResult]) -> RetrievalSummar
         hit_at_1_rate=_mean([1.0 if item.hit_at_1 else 0.0 for item in answerable_results]),
         no_answer_accuracy=_mean([1.0 if item.passed else 0.0 for item in negative_results]),
         golden_count_mismatch_rate=_mean([1.0 if item.golden_count_expected != item.golden_count_actual else 0.0 for item in results if item.golden_count_expected is not None]),
+        latency_ms_avg=round(mean(latencies), 3) if latencies else 0.0,
+        latency_ms_p50=round(_percentile(latencies, 50), 3),
+        latency_ms_p95=round(_percentile(latencies, 95), 3),
+        latency_ms_max=round(max(latencies), 3) if latencies else 0.0,
     )
 
 
@@ -871,6 +888,7 @@ async def run_retrieval_eval(config: RetrievalEvalConfig) -> RetrievalReport:
             search_request = _search_request(case, kb_ids, config)
             current_kb_ids = search_request["kb_ids"] or list(config.default_kb_ids) or kb_ids
             try:
+                started = time.perf_counter()
                 async with semaphore:
                     retrieved_items = await client.search(
                         query=case.query,
@@ -882,6 +900,7 @@ async def run_retrieval_eval(config: RetrievalEvalConfig) -> RetrievalReport:
                         strategy=search_request["strategy"],
                         trace_id=f"eval-{case.case_id}",
                     )
+                elapsed_ms = (time.perf_counter() - started) * 1000.0
                 selected_catalog = {doc_id: doc for doc_id, doc in catalog.items() if doc.kb_id in current_kb_ids}
                 ground_truth_ids, expected_count = resolve_ground_truth_ids(case, selected_catalog)
                 result = evaluate_retrieved_docs(
@@ -891,6 +910,7 @@ async def run_retrieval_eval(config: RetrievalEvalConfig) -> RetrievalReport:
                     catalog=selected_catalog,
                     quality_requirements=_quality_requirements(case, config),
                 )
+                result.latency_ms = round(elapsed_ms, 3)
                 if case.golden_count is not None and expected_count != case.golden_count:
                     result.golden_count_actual = expected_count
                 results.append(result)
