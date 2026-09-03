@@ -77,6 +77,13 @@ class Settings:
         self.default_search_strategy = os.getenv("KNOWLEDGE_DEFAULT_SEARCH_STRATEGY", "vector").strip().lower()
         # 向量召回放大倍数：取 top_k * factor 候选后再做 metadata/rerank，避免过滤后不足 topK。
         self.search_oversample_factor = max(1, min(int(os.getenv("KNOWLEDGE_SEARCH_OVERSAMPLE_FACTOR", "8")), 100))
+        # 元数据加权排序的业务权重系数（weighted 策略）。
+        self.search_region_weight = float(os.getenv("KNOWLEDGE_SEARCH_REGION_WEIGHT", "0.05"))
+        self.search_freshness_weight = float(os.getenv("KNOWLEDGE_SEARCH_FRESHNESS_WEIGHT", "0.03"))
+        self.search_industry_weight = float(os.getenv("KNOWLEDGE_SEARCH_INDUSTRY_WEIGHT", "0.05"))
+        # 混合检索（hybrid 策略）参数。
+        self.hybrid_keyword_limit = max(1, int(os.getenv("KNOWLEDGE_HYBRID_KEYWORD_LIMIT", "20")))
+        self.hybrid_similarity_threshold = float(os.getenv("KNOWLEDGE_HYBRID_SIMILARITY_THRESHOLD", "0.2"))
         self.allowed_namespaces = [
             item.strip()
             for item in os.getenv("KNOWLEDGE_ALLOWED_NAMESPACES", "default,policy,customer_service").split(",")

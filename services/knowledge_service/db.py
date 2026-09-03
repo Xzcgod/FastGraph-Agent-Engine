@@ -74,6 +74,15 @@ async def init_database() -> None:
                 "ON td_knowledge_chunk USING hnsw (embedding vector_cosine_ops)"
             )
         )
+        # 混合检索关键词通道：pg_trgm 扩展 + content_text 的 GIN trigram 索引，
+        # 加速 ilike / similarity 模糊匹配（中文 n-gram，无第三方分词依赖）。
+        await connection.execute(text("CREATE EXTENSION IF NOT EXISTS pg_trgm"))
+        await connection.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_knowledge_chunk_content_trgm "
+                "ON td_knowledge_chunk USING gin (content_text gin_trgm_ops)"
+            )
+        )
 
 
 async def session_dependency() -> AsyncIterator[AsyncSession]:
