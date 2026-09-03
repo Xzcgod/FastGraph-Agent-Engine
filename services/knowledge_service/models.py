@@ -9,7 +9,8 @@ from datetime import UTC, datetime
 from typing import Any, Dict, List
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Column, JSON, Text
+from sqlalchemy import JSON, Column, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
 
@@ -54,7 +55,7 @@ class KnowledgeDocument(SQLModel, table=True):
     ingest_status: str = Field(default="completed", max_length=32, index=True)
     ingest_error: str | None = Field(default=None, sa_column=Column(Text))
     chunk_count: int = Field(default=0, nullable=False)
-    metadata_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    metadata_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB, nullable=False))
     created_by: str = Field(default="system", max_length=128)
     created_at: datetime = Field(default_factory=utc_now, nullable=False)
     updated_at: datetime = Field(default_factory=utc_now, nullable=False)
@@ -70,7 +71,7 @@ class KnowledgeChunk(SQLModel, table=True):
     content_text: str = Field(sa_column=Column(Text, nullable=False))
     content_hash: str = Field(nullable=False, max_length=128, index=True)
     token_count: int | None = Field(default=None)
-    metadata_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    metadata_json: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB, nullable=False))
     status: str = Field(default="active", max_length=32, index=True)
     embedding: List[float] = Field(sa_type=Vector(1024))
     created_at: datetime = Field(default_factory=utc_now, nullable=False)

@@ -337,6 +337,7 @@ def _search_request(case: RetrievalCase, default_kb_ids: Sequence[str], config: 
         ),
         "metadata_filter": _request_value(request, "metadataFilter", "metadata_filter") or {},
         "namespace": _request_value(request, "namespace"),
+        "strategy": _request_value(request, "strategy"),
     }
 
 
@@ -878,6 +879,7 @@ async def run_retrieval_eval(config: RetrievalEvalConfig) -> RetrievalReport:
                         score_threshold=search_request["score_threshold"],
                         metadata_filter=search_request["metadata_filter"],
                         namespace=search_request["namespace"],
+                        strategy=search_request["strategy"],
                         trace_id=f"eval-{case.case_id}",
                     )
                 selected_catalog = {doc_id: doc for doc_id, doc in catalog.items() if doc.kb_id in current_kb_ids}
