@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Protocol, Set, Tuple, TypedDict
 
 from fastapi import status
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.knowledge_service.config import settings
@@ -62,6 +62,7 @@ class SearchContext:
     metadata_filter: Dict[str, Any]
     namespace: str | None
     strategy: str | None = None
+    rerank: bool = True
 
     @classmethod
     def from_payload(cls, payload: Dict[str, Any]) -> "SearchContext":
@@ -86,6 +87,7 @@ class SearchContext:
 
         namespace = payload.get("namespace")
         strategy = payload.get("strategy")
+        rerank = bool(payload.get("rerank", True))
         return cls(
             query=query,
             kb_ids=[str(kb_id) for kb_id in kb_ids],
@@ -94,6 +96,7 @@ class SearchContext:
             metadata_filter=metadata_filter,
             namespace=str(namespace) if namespace else None,
             strategy=str(strategy).strip().lower() if strategy else None,
+            rerank=rerank,
         )
 
 
@@ -121,8 +124,6 @@ def get_strategy(name: str) -> SearchStrategy | None:
 _NESTED_SECTIONS = ("common", "domain", "_raw")
 # 区域优先级权重（对齐评估服务 runner 的 _region_rank）。
 _REGION_RANK = {"武汉": 3, "湖北": 2, "国家": 1}
-# RRF 融合常数 k。
-_RRF_K = 60
 
 # 召回条目：(chunk, document, kb, distance, score)。distance 对关键词通道为 None。
 RecallEntry = Tuple[KnowledgeChunk, KnowledgeDocument, KnowledgeBase, float | None, float]
@@ -222,19 +223,22 @@ async def _vector_recall(session: AsyncSession, ctx: SearchContext, limit: int) 
     return entries
 
 
-async def _keyword_recall(session: AsyncSession, ctx: SearchContext) -> List[RecallEntry]:
-    """关键词通道召回：pg_trgm similarity 排序（GIN trigram 索引加速），不套 metadata 过滤。"""
-    similarity = func.similarity(KnowledgeChunk.content_text, ctx.query)
-    statement = (
-        select(KnowledgeChunk, KnowledgeDocument, KnowledgeBase, similarity.label("similarity"))
-        .join(KnowledgeDocument, KnowledgeChunk.document_id == KnowledgeDocument.id)
-        .join(KnowledgeBase, KnowledgeChunk.kb_id == KnowledgeBase.id)
-        .where(*_base_conditions(ctx), similarity >= settings.hybrid_similarity_threshold)
-        .order_by(similarity.desc())
-        .limit(settings.hybrid_keyword_limit)
-    )
-    rows = (await session.execute(statement)).all()
-    return [(chunk, document, kb, None, float(sim)) for chunk, document, kb, sim in rows]
+def _keyword_bonus(query: str, chunk_text: str) -> float:
+    """query 与 chunk 正文的字符 bigram 重叠率（0~1），衡量关键词命中程度。
+
+    轻量替代 pg_trgm 全表扫描：只对已召回的候选在 Python 侧算，避免 GIN 索引
+    全扫带来的高延迟；专有名词/政策名等「向量语义易漂移、字符强匹配」的 query
+    能靠它得到加分。
+    """
+    q = _normalize_text(query)
+    text = _normalize_text(chunk_text)
+    if not q or len(q) < 2:
+        return 0.0
+    q_grams = {q[i : i + 2] for i in range(len(q) - 1)}
+    if not q_grams:
+        return 0.0
+    text_grams = {text[i : i + 2] for i in range(len(text) - 1)}
+    return len(q_grams & text_grams) / len(q_grams)
 
 
 def _hit_to_dict(entry: RecallEntry, *, weighted_score: float | None = None) -> SearchHit:
@@ -387,6 +391,26 @@ def _weighted_bonus(
     return bonus
 
 
+async def _maybe_rerank(ctx: SearchContext, items: List[SearchHit]) -> List[SearchHit]:
+    """按 ctx.rerank 决定是否精排：关闭时直接返回，用于延迟敏感场景或评估 rerank 开关影响。"""
+    if not ctx.rerank:
+        return items
+    return await rerank_items(ctx.query, items)
+
+
+def _fuse_rerank(items: List[SearchHit]) -> List[SearchHit]:
+    """把业务加权分（weightedScore 存纯 bonus）融合进精排结果：base + bonus 重排。
+
+    rerank 开启时 base 取 rerankScore（否则取向量 score），再加上业务 bonus。
+    这样业务加权不会在 rerank 之后被覆盖——加权是在精排结果上做软偏好微调。
+    """
+    def fused_score(item: SearchHit) -> float:
+        base = item.get("rerankScore") if item.get("rerankScore") is not None else item.get("score", 0.0)
+        return float(base) + float(item.get("weightedScore") or 0.0)
+
+    return sorted(items, key=fused_score, reverse=True)
+
+
 # --- 检索策略 ---
 
 class VectorSearchStrategy:
@@ -399,12 +423,12 @@ class VectorSearchStrategy:
             return []
         entries = await _vector_recall(session, ctx, ctx.top_k * settings.search_oversample_factor)
         items = [_hit_to_dict(entry) for entry in entries]
-        reranked = await rerank_items(ctx.query, items)
+        reranked = await _maybe_rerank(ctx, items)
         return reranked[: ctx.top_k]
 
 
 class WeightedVectorSearchStrategy:
-    """元数据加权排序：在向量分上融合区域/时效/产业软偏好后重排，再 rerank。"""
+    """元数据加权排序：向量召回后按业务软偏好（区域/时效/产业）加分，rerank 后融合重排。"""
 
     name = "weighted"
 
@@ -419,50 +443,43 @@ class WeightedVectorSearchStrategy:
         years = [year for entry in entries if (year := _document_year(entry[1].metadata_json or {})) is not None]
         reference_year = year_pref or (max(years) if years else None)
 
-        scored: List[Tuple[float, RecallEntry]] = []
+        # weightedScore 存纯业务 bonus，供 _fuse_rerank 在 rerank 后融合。
+        items: List[SearchHit] = []
         for entry in entries:
             bonus = _weighted_bonus(entry[1].metadata_json or {}, region_pref, reference_year, industry_pref)
-            final = entry[4] + bonus
-            scored.append((final, entry))
-        scored.sort(key=lambda pair: pair[0], reverse=True)
+            items.append(_hit_to_dict(entry, weighted_score=bonus))
 
-        items = [_hit_to_dict(entry, weighted_score=final) for final, entry in scored]
-        reranked = await rerank_items(ctx.query, items)
-        return reranked[: ctx.top_k]
+        reranked = await _maybe_rerank(ctx, items)
+        fused = _fuse_rerank(reranked)
+        return fused[: ctx.top_k]
 
 
 class HybridSearchStrategy:
-    """混合检索：pg_trgm 关键词通道 + pgvector 向量通道，RRF 融合后精筛 + rerank。"""
+    """混合检索（轻量）：向量召回 + 关键词加分 + rerank 融合。
+
+    不做 pg_trgm 全表关键词召回（成本高、收益低），改为对向量召回的候选在
+    Python 侧算字符 bigram 重叠率加分，专有名词/政策名等 query 受益。
+    """
 
     name = "hybrid"
 
     async def search(self, session: AsyncSession, ctx: SearchContext) -> List[SearchHit]:
         if not await _has_searchable_chunk(session, ctx):
             return []
-        vector_entries = await _vector_recall(session, ctx, ctx.top_k * settings.search_oversample_factor)
-        keyword_entries = await _keyword_recall(session, ctx)
+        entries = await _vector_recall(session, ctx, ctx.top_k * settings.search_oversample_factor)
+        if not entries:
+            return []
 
-        # RRF 融合：按 chunk.id 去重，两个通道的排名贡献累加。
-        rrf: Dict[str, float] = {}
-        by_id: Dict[str, RecallEntry] = {}
-        for entries in (vector_entries, keyword_entries):
-            for rank, entry in enumerate(entries, start=1):
-                chunk_id = entry[0].id
-                rrf[chunk_id] = rrf.get(chunk_id, 0.0) + 1.0 / (_RRF_K + rank)
-                by_id.setdefault(chunk_id, entry)
-
-        ordered = sorted(by_id.values(), key=lambda entry: rrf[entry[0].id], reverse=True)
-
-        # 融合后统一 metadata 精筛（关键词通道未套过滤）。
         items: List[SearchHit] = []
-        for entry in ordered:
-            chunk, document, _kb, _distance, _score = entry
-            if not metadata_matches(ctx.metadata_filter, document.metadata_json or {}, chunk.metadata_json or {}):
-                continue
-            items.append(_hit_to_dict(entry))
+        for entry in entries:
+            chunk = entry[0]
+            overlap = _keyword_bonus(ctx.query, chunk.content_text)
+            bonus = overlap * settings.search_keyword_weight
+            items.append(_hit_to_dict(entry, weighted_score=bonus))
 
-        reranked = await rerank_items(ctx.query, items)
-        return reranked[: ctx.top_k]
+        reranked = await _maybe_rerank(ctx, items)
+        fused = _fuse_rerank(reranked)
+        return fused[: ctx.top_k]
 
 
 register_strategy(VectorSearchStrategy())
