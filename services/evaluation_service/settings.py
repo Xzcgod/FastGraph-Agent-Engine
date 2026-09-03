@@ -94,7 +94,7 @@ class RetrievalEvalConfig:
     document_page_size: int = field(default_factory=lambda: _parse_int(os.getenv("EVAL_DOCUMENT_PAGE_SIZE"), 200))
     # 业务级指标判定阈值
     local_priority_threshold: float = field(
-        default_factory=lambda: _parse_float(os.getenv("EVAL_LOCAL_PRIORITY_THRESHOLD"), 0.8)
+        default_factory=lambda: _parse_float(os.getenv("EVAL_LOCAL_PRIORITY_THRESHOLD"), 0.6)
     )
     freshness_threshold: float = field(
         default_factory=lambda: _parse_float(os.getenv("EVAL_FRESHNESS_THRESHOLD"), 0.8)

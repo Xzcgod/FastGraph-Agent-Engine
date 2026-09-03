@@ -340,6 +340,7 @@ def _search_request(case: RetrievalCase, default_kb_ids: Sequence[str], config: 
         "metadata_filter": _request_value(request, "metadataFilter", "metadata_filter") or {},
         "namespace": _request_value(request, "namespace"),
         "strategy": _request_value(request, "strategy"),
+        "rerank": _request_value(request, "rerank"),
     }
 
 
@@ -679,11 +680,14 @@ def _local_priority_score(
     catalog: Dict[str, KnowledgeDocumentRecord],
     expected_region: str | None,
 ) -> float:
-    """本地优先得分（0~1）。显式指定区域时按硬命中给分，否则按区域权重比例折减，
-    再以 log 折扣位置加权求和。目录中若不存在更高优先级区域则自动降档对齐。"""
+    """本地优先得分（0~1），软偏好口径。
+
+    按区域权重比例给分：命中目标区域（武汉>湖北>国家）得满分，低一档按 rank/target_rank
+    折减（湖北相对武汉 0.67，国家 0.33），不再要求「必须全是对应区域」的硬匹配——
+    prefer_local 语义是「优先本地」而非「只允许本地」。log 折扣位置加权求和。
+    """
     if not items or not expected_region:
         return 0.0
-    explicit_region = _scenario_value(case, "region", "区域") or _golden_value(case, "region", "区域")
     available = max((_region_rank(_resolve_region(document.metadata_json)) for document in catalog.values()), default=0)
     target_rank = _region_rank(expected_region)
     if available < target_rank:
@@ -691,10 +695,7 @@ def _local_priority_score(
     scores = []
     for item in items:
         rank = _region_rank(_item_region(item, catalog))
-        if explicit_region:
-            scores.append(1.0 if _item_region(item, catalog) == expected_region else 0.0)
-        else:
-            scores.append(1.0 if rank == target_rank else max(0.0, min(1.0, rank / max(target_rank, 1))))
+        scores.append(1.0 if rank == target_rank else max(0.0, min(1.0, rank / max(target_rank, 1))))
     return sum(score / log2(index + 2) for index, score in enumerate(scores)) / sum(
         1 / log2(index + 2) for index in range(len(scores))
     )
@@ -898,6 +899,7 @@ async def run_retrieval_eval(config: RetrievalEvalConfig) -> RetrievalReport:
                         metadata_filter=search_request["metadata_filter"],
                         namespace=search_request["namespace"],
                         strategy=search_request["strategy"],
+                        rerank=search_request["rerank"],
                         trace_id=f"eval-{case.case_id}",
                     )
                 elapsed_ms = (time.perf_counter() - started) * 1000.0
