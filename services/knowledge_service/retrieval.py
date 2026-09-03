@@ -6,17 +6,20 @@
 新增算法只需实现 `SearchStrategy` 并 `register_strategy`，便于后续多种算法
 A/B 评估（评估服务黑盒调 /search 时传不同 strategy 即可）。
 
-当前内置 `VectorSearchStrategy`：HNSW 向量召回（oversample）+ metadata SQL 粗筛
-+ Python 精筛 + rerank。
+内置三个策略：
+- `vector`：纯向量检索（HNSW 召回 + metadata SQL 粗筛 + Python 精筛 + rerank）。
+- `weighted`：在向量分之上融合区域/时效/产业的业务软偏好（固定规则 + metadataFilter）。
+- `hybrid`：pg_trgm 关键词通道 + pgvector 向量通道，RRF 融合。
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Protocol, TypedDict
+from typing import Any, Dict, List, Protocol, Set, Tuple, TypedDict
 
 from fastapi import status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.knowledge_service.config import settings
@@ -44,6 +47,7 @@ class SearchHit(TypedDict, total=False):
     distance: float
     contentExcerpt: str
     rerankScore: float | None
+    weightedScore: float | None
     citation: Dict[str, Any]
 
 
@@ -115,6 +119,13 @@ def get_strategy(name: str) -> SearchStrategy | None:
 
 # 顶层嵌套元数据段：metadataFilter 里这三个键会被当作精确路径下钻，而非扁平别名。
 _NESTED_SECTIONS = ("common", "domain", "_raw")
+# 区域优先级权重（对齐评估服务 runner 的 _region_rank）。
+_REGION_RANK = {"武汉": 3, "湖北": 2, "国家": 1}
+# RRF 融合常数 k。
+_RRF_K = 60
+
+# 召回条目：(chunk, document, kb, distance, score)。distance 对关键词通道为 None。
+RecallEntry = Tuple[KnowledgeChunk, KnowledgeDocument, KnowledgeBase, float | None, float]
 
 
 def _json_text_eq(path: List[str], value: Any) -> Any:
@@ -126,9 +137,9 @@ def _json_text_eq(path: List[str], value: Any) -> Any:
     return expression == str(value)
 
 
-def _nested_scalars(value: Dict[str, Any], prefix: List[str]) -> List[tuple[List[str], Any]]:
+def _nested_scalars(value: Dict[str, Any], prefix: List[str]) -> List[Tuple[List[str], Any]]:
     """递归收集嵌套段里可下推的标量叶子（str/int/float；list/bool 交给 Python 精筛）。"""
-    leaves: List[tuple[List[str], Any]] = []
+    leaves: List[Tuple[List[str], Any]] = []
     for key, item in value.items():
         if isinstance(item, dict):
             leaves.extend(_nested_scalars(item, prefix + [str(key)]))
@@ -155,93 +166,308 @@ def _metadata_sql_conditions(metadata_filter: Dict[str, Any]) -> List[Any]:
     return conditions
 
 
+def _base_conditions(ctx: SearchContext) -> List[Any]:
+    """检索通道共用的基础过滤条件（kb 范围 / namespace / 状态）。"""
+    conditions: List[Any] = [
+        KnowledgeBase.status == "active",
+        KnowledgeDocument.ingest_status == "completed",
+        KnowledgeChunk.status == "active",
+    ]
+    if ctx.kb_ids:
+        conditions.append(KnowledgeBase.id.in_(ctx.kb_ids))
+    if ctx.namespace:
+        conditions.append(KnowledgeBase.namespace == ctx.namespace)
+    return conditions
+
+
+async def _has_searchable_chunk(session: AsyncSession, ctx: SearchContext) -> bool:
+    """预检：无任何可检索分片时返回 False，省一次 embedding 调用。"""
+    statement = (
+        select(KnowledgeChunk.id)
+        .join(KnowledgeDocument, KnowledgeChunk.document_id == KnowledgeDocument.id)
+        .join(KnowledgeBase, KnowledgeChunk.kb_id == KnowledgeBase.id)
+        .where(*_base_conditions(ctx))
+        .limit(1)
+    )
+    searchable_chunk_id = await session.scalar(statement)
+    if not searchable_chunk_id:
+        return False
+    await session.rollback()
+    return True
+
+
+async def _vector_recall(session: AsyncSession, ctx: SearchContext, limit: int) -> List[RecallEntry]:
+    """向量召回：HNSW cosine_distance 排序，metadata SQL 粗筛 + Python 精筛 + min_score。"""
+    query_vector = await get_embedding(ctx.query)
+    distance = KnowledgeChunk.embedding.cosine_distance(query_vector).label("distance")
+    conditions = _base_conditions(ctx) + _metadata_sql_conditions(ctx.metadata_filter)
+    statement = (
+        select(KnowledgeChunk, KnowledgeDocument, KnowledgeBase, distance)
+        .join(KnowledgeDocument, KnowledgeChunk.document_id == KnowledgeDocument.id)
+        .join(KnowledgeBase, KnowledgeChunk.kb_id == KnowledgeBase.id)
+        .where(*conditions)
+        .order_by(distance)
+        .limit(limit)
+    )
+    rows = (await session.execute(statement)).all()
+
+    entries: List[RecallEntry] = []
+    for chunk, document, kb, raw_distance in rows:
+        if not metadata_matches(ctx.metadata_filter, document.metadata_json or {}, chunk.metadata_json or {}):
+            continue
+        score = max(0.0, 1.0 - float(raw_distance or 0.0))
+        if score < ctx.min_score:
+            continue
+        entries.append((chunk, document, kb, float(raw_distance or 0.0), score))
+    return entries
+
+
+async def _keyword_recall(session: AsyncSession, ctx: SearchContext) -> List[RecallEntry]:
+    """关键词通道召回：pg_trgm similarity 排序（GIN trigram 索引加速），不套 metadata 过滤。"""
+    similarity = func.similarity(KnowledgeChunk.content_text, ctx.query)
+    statement = (
+        select(KnowledgeChunk, KnowledgeDocument, KnowledgeBase, similarity.label("similarity"))
+        .join(KnowledgeDocument, KnowledgeChunk.document_id == KnowledgeDocument.id)
+        .join(KnowledgeBase, KnowledgeChunk.kb_id == KnowledgeBase.id)
+        .where(*_base_conditions(ctx), similarity >= settings.hybrid_similarity_threshold)
+        .order_by(similarity.desc())
+        .limit(settings.hybrid_keyword_limit)
+    )
+    rows = (await session.execute(statement)).all()
+    return [(chunk, document, kb, None, float(sim)) for chunk, document, kb, sim in rows]
+
+
+def _hit_to_dict(entry: RecallEntry, *, weighted_score: float | None = None) -> SearchHit:
+    chunk, document, kb, raw_distance, score = entry
+    hit: SearchHit = {
+        "kbId": kb.id,
+        "kbName": kb.name,
+        "namespace": kb.namespace,
+        "documentId": document.id,
+        "chunkId": chunk.id,
+        "title": document.title,
+        "sourceType": document.source_type,
+        "sourceRef": document.source_ref,
+        "score": round(score, 6),
+        "distance": round(raw_distance, 6) if raw_distance is not None else 0.0,
+        "contentExcerpt": chunk.content_text[:800],
+        "citation": {
+            "documentId": document.id,
+            "chunkId": chunk.id,
+            "title": document.title,
+            "sourceRef": document.source_ref,
+        },
+    }
+    if weighted_score is not None:
+        hit["weightedScore"] = round(weighted_score, 6)
+    return hit
+
+
+# --- 业务信号提取（对齐评估服务 runner 的口径，但独立实现避免跨服务耦合） ---
+
+def _normalize_text(value: Any) -> str:
+    return re.sub(r"\s+", "", str(value or "").strip())
+
+
+def _normalize_list(value: Any) -> List[str]:
+    if value is None:
+        return []
+    items = value if isinstance(value, (list, tuple, set)) else [value]
+    normalized: List[str] = []
+    seen: Set[str] = set()
+    for item in items:
+        text = _normalize_text(item)
+        if text and text not in seen:
+            seen.add(text)
+            normalized.append(text)
+    return normalized
+
+
+def _metadata_flat(document_metadata: Dict[str, Any]) -> Dict[str, Any]:
+    """展平 document.metadata_json 的 _raw/common/domain 为扁平视图（对齐 runner _metadata_view）。"""
+    view: Dict[str, Any] = {}
+    for key in ("_raw", "common", "domain"):
+        value = document_metadata.get(key)
+        if isinstance(value, dict):
+            view.update(value)
+    view.update({key: value for key, value in document_metadata.items() if not str(key).startswith("_")})
+    return view
+
+
+def _normalize_region_label(value: Any) -> str:
+    text = _normalize_text(value)
+    if "武汉" in text:
+        return "武汉"
+    if "湖北" in text:
+        return "湖北"
+    if text in {"国家", "全国", "中央", "国家级"} or "国务院" in text or "中央" in text:
+        return "国家"
+    return text or "其他"
+
+
+def _resolve_region(document_metadata: Dict[str, Any]) -> str:
+    view = _metadata_flat(document_metadata)
+    region = _normalize_text(view.get("region") or view.get("区域"))
+    if region:
+        return _normalize_region_label(region)
+    city = _normalize_text(view.get("city") or view.get("城市"))
+    province = _normalize_text(view.get("province") or view.get("省份"))
+    if city:
+        return "武汉"
+    if province:
+        return "湖北"
+    return "国家"
+
+
+def _document_year(document_metadata: Dict[str, Any]) -> int | None:
+    view = _metadata_flat(document_metadata)
+    value = view.get("publishedAt") or view.get("publishTime") or view.get("发布时间")
+    match = re.search(r"(19|20)\d{2}", str(value or ""))
+    return int(match.group(0)) if match else None
+
+
+def _document_industry(document_metadata: Dict[str, Any]) -> List[str]:
+    view = _metadata_flat(document_metadata)
+    value = view.get("industry") or view.get("chain") or view.get("产业分类")
+    return _normalize_list(value)
+
+
+def _filter_value(metadata_filter: Dict[str, Any], *keys: str) -> Any:
+    """从 metadataFilter 取偏好值：先查嵌套段（common/domain/_raw），再查扁平 key。"""
+    for section in _NESTED_SECTIONS:
+        nested = metadata_filter.get(section)
+        if isinstance(nested, dict):
+            for key in keys:
+                value = nested.get(key)
+                if value not in (None, "", [], {}):
+                    return value
+    for key in keys:
+        value = metadata_filter.get(key)
+        if value not in (None, "", [], {}):
+            return value
+    return None
+
+
+def _preference_from_filter(metadata_filter: Dict[str, Any]) -> Tuple[str, int | None, Set[str]]:
+    """解析加权偏好：region 默认「武汉」，year 默认 None（=最新），industry 默认空集。"""
+    region_value = _filter_value(metadata_filter, "region", "区域")
+    region = _normalize_region_label(region_value) if region_value else "武汉"
+
+    year_value = _filter_value(metadata_filter, "year", "publishedAt", "publishTime", "发布时间", "年份")
+    year: int | None = None
+    if year_value is not None:
+        match = re.search(r"(19|20)\d{2}", str(year_value))
+        if match:
+            year = int(match.group(0))
+
+    industry = set(_normalize_list(_filter_value(metadata_filter, "industry", "chain", "产业分类")))
+    return region, year, industry
+
+
+def _weighted_bonus(
+    document_metadata: Dict[str, Any],
+    region_pref: str,
+    reference_year: int | None,
+    industry_pref: Set[str],
+) -> float:
+    """计算文档的业务加权加分（区域 + 时效 + 产业）。"""
+    bonus = 0.0
+    region = _resolve_region(document_metadata)
+    bonus += (_REGION_RANK.get(region, 0) / 3.0) * settings.search_region_weight
+
+    if reference_year is not None:
+        doc_year = _document_year(document_metadata)
+        if doc_year is not None:
+            bonus += max(0.0, 1.0 - abs(reference_year - doc_year) / 5.0) * settings.search_freshness_weight
+
+    if industry_pref:
+        doc_industry = set(_document_industry(document_metadata))
+        if doc_industry & industry_pref:
+            bonus += settings.search_industry_weight
+    return bonus
+
+
+# --- 检索策略 ---
+
 class VectorSearchStrategy:
     """纯向量检索：HNSW 召回 + metadata 粗筛 + Python 精筛 + rerank。"""
 
     name = "vector"
 
     async def search(self, session: AsyncSession, ctx: SearchContext) -> List[SearchHit]:
-        # 预检：无任何可检索分片时直接返回空，省一次 embedding 调用。
-        searchable_statement = (
-            select(KnowledgeChunk.id)
-            .join(KnowledgeDocument, KnowledgeChunk.document_id == KnowledgeDocument.id)
-            .join(KnowledgeBase, KnowledgeChunk.kb_id == KnowledgeBase.id)
-            .where(
-                KnowledgeBase.status == "active",
-                KnowledgeDocument.ingest_status == "completed",
-                KnowledgeChunk.status == "active",
-            )
-            .limit(1)
-        )
-        if ctx.kb_ids:
-            searchable_statement = searchable_statement.where(KnowledgeBase.id.in_(ctx.kb_ids))
-        if ctx.namespace:
-            searchable_statement = searchable_statement.where(KnowledgeBase.namespace == ctx.namespace)
-        searchable_chunk_id = await session.scalar(searchable_statement)
-        if not searchable_chunk_id:
+        if not await _has_searchable_chunk(session, ctx):
             return []
-        await session.rollback()
+        entries = await _vector_recall(session, ctx, ctx.top_k * settings.search_oversample_factor)
+        items = [_hit_to_dict(entry) for entry in entries]
+        reranked = await rerank_items(ctx.query, items)
+        return reranked[: ctx.top_k]
 
-        query_vector = await get_embedding(ctx.query)
-        distance = KnowledgeChunk.embedding.cosine_distance(query_vector).label("distance")
-        candidate_limit = ctx.top_k * settings.search_oversample_factor
 
-        conditions = [
-            KnowledgeBase.status == "active",
-            KnowledgeDocument.ingest_status == "completed",
-            KnowledgeChunk.status == "active",
-        ]
-        if ctx.kb_ids:
-            conditions.append(KnowledgeBase.id.in_(ctx.kb_ids))
-        if ctx.namespace:
-            conditions.append(KnowledgeBase.namespace == ctx.namespace)
-        conditions.extend(_metadata_sql_conditions(ctx.metadata_filter))
+class WeightedVectorSearchStrategy:
+    """元数据加权排序：在向量分上融合区域/时效/产业软偏好后重排，再 rerank。"""
 
-        statement = (
-            select(KnowledgeChunk, KnowledgeDocument, KnowledgeBase, distance)
-            .join(KnowledgeDocument, KnowledgeChunk.document_id == KnowledgeDocument.id)
-            .join(KnowledgeBase, KnowledgeChunk.kb_id == KnowledgeBase.id)
-            .where(*conditions)
-            .order_by(distance)
-            .limit(candidate_limit)
-        )
-        rows = (await session.execute(statement)).all()
+    name = "weighted"
 
+    async def search(self, session: AsyncSession, ctx: SearchContext) -> List[SearchHit]:
+        if not await _has_searchable_chunk(session, ctx):
+            return []
+        entries = await _vector_recall(session, ctx, ctx.top_k * settings.search_oversample_factor)
+        if not entries:
+            return []
+
+        region_pref, year_pref, industry_pref = _preference_from_filter(ctx.metadata_filter)
+        years = [year for entry in entries if (year := _document_year(entry[1].metadata_json or {})) is not None]
+        reference_year = year_pref or (max(years) if years else None)
+
+        scored: List[Tuple[float, RecallEntry]] = []
+        for entry in entries:
+            bonus = _weighted_bonus(entry[1].metadata_json or {}, region_pref, reference_year, industry_pref)
+            final = entry[4] + bonus
+            scored.append((final, entry))
+        scored.sort(key=lambda pair: pair[0], reverse=True)
+
+        items = [_hit_to_dict(entry, weighted_score=final) for final, entry in scored]
+        reranked = await rerank_items(ctx.query, items)
+        return reranked[: ctx.top_k]
+
+
+class HybridSearchStrategy:
+    """混合检索：pg_trgm 关键词通道 + pgvector 向量通道，RRF 融合后精筛 + rerank。"""
+
+    name = "hybrid"
+
+    async def search(self, session: AsyncSession, ctx: SearchContext) -> List[SearchHit]:
+        if not await _has_searchable_chunk(session, ctx):
+            return []
+        vector_entries = await _vector_recall(session, ctx, ctx.top_k * settings.search_oversample_factor)
+        keyword_entries = await _keyword_recall(session, ctx)
+
+        # RRF 融合：按 chunk.id 去重，两个通道的排名贡献累加。
+        rrf: Dict[str, float] = {}
+        by_id: Dict[str, RecallEntry] = {}
+        for entries in (vector_entries, keyword_entries):
+            for rank, entry in enumerate(entries, start=1):
+                chunk_id = entry[0].id
+                rrf[chunk_id] = rrf.get(chunk_id, 0.0) + 1.0 / (_RRF_K + rank)
+                by_id.setdefault(chunk_id, entry)
+
+        ordered = sorted(by_id.values(), key=lambda entry: rrf[entry[0].id], reverse=True)
+
+        # 融合后统一 metadata 精筛（关键词通道未套过滤）。
         items: List[SearchHit] = []
-        for chunk, document, kb, raw_distance in rows:
-            # Python 精筛：复杂形态（list/bool/递归 dict/aliases）在这里兜底，保证语义不回归。
+        for entry in ordered:
+            chunk, document, _kb, _distance, _score = entry
             if not metadata_matches(ctx.metadata_filter, document.metadata_json or {}, chunk.metadata_json or {}):
                 continue
-            score = max(0.0, 1.0 - float(raw_distance or 0.0))
-            if score < ctx.min_score:
-                continue
-            items.append(
-                {
-                    "kbId": kb.id,
-                    "kbName": kb.name,
-                    "namespace": kb.namespace,
-                    "documentId": document.id,
-                    "chunkId": chunk.id,
-                    "title": document.title,
-                    "sourceType": document.source_type,
-                    "sourceRef": document.source_ref,
-                    "score": round(score, 6),
-                    "distance": float(raw_distance or 0.0),
-                    "contentExcerpt": chunk.content_text[:800],
-                    "citation": {
-                        "documentId": document.id,
-                        "chunkId": chunk.id,
-                        "title": document.title,
-                        "sourceRef": document.source_ref,
-                    },
-                }
-            )
+            items.append(_hit_to_dict(entry))
 
         reranked = await rerank_items(ctx.query, items)
         return reranked[: ctx.top_k]
 
 
 register_strategy(VectorSearchStrategy())
+register_strategy(WeightedVectorSearchStrategy())
+register_strategy(HybridSearchStrategy())
 
 
 async def search(session: AsyncSession, payload: Dict[str, Any]) -> Dict[str, Any]:
