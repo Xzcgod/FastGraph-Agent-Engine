@@ -33,11 +33,13 @@ IDE & Editor settings
 Misc & Personal files
 
 *.ipynb
+*.dump
 
 
 Reports & Uploads
 
 evals/reports/
+services/evaluation_service/results/
 uploads/
 
 Local runtime state

@@ -335,6 +335,7 @@
                     <button class="detail-tab active" data-kb-tab="documents">文档</button>
                     <button class="detail-tab" data-kb-tab="jobs">入库任务</button>
                     <button class="detail-tab" data-kb-tab="search">搜索预览</button>
+                    <button class="detail-tab" data-kb-tab="metadata">元数据提取</button>
                     <button class="detail-tab" data-kb-tab="upload">文档上传</button>
                   </nav>
 
@@ -408,6 +409,111 @@
                       </div>
                       <div id="searchResults" class="search-results"></div>
                     </div>
+                  </section>
+
+                  <section class="kb-tab-panel hidden" data-kb-panel="metadata">
+                    <form id="metadataExtractionForm" class="ingest-panel metadata-extraction-panel">
+                      <div class="section-heading">
+                        <div>
+                          <h3>元数据提取</h3>
+                          <p class="helper-line">按当前知识库配置，从文档前部提取任意键值字段并保存到 metadataJson。</p>
+                        </div>
+                        <label class="switch-row">
+                          <input id="metadataExtractionEnabledInput" type="checkbox" />
+                          启用提取
+                        </label>
+                      </div>
+                      <div class="form-row two-cols">
+                        <div class="field">
+                          <label for="metadataExtractionSchemaNameInput">Schema 名称</label>
+                          <input id="metadataExtractionSchemaNameInput" value="generic" maxlength="64" />
+                        </div>
+                        <div class="field">
+                          <label for="metadataExtractionSchemaVersionInput">Schema 版本</label>
+                          <input id="metadataExtractionSchemaVersionInput" value="1" maxlength="32" />
+                        </div>
+                      </div>
+                      <div class="metadata-config-section">
+                        <div class="metadata-config-head">
+                          <div>
+                            <h4>字段映射</h4>
+                            <p class="helper-line">把文档中的原始字段放入统一的 common 或 domain 路径。</p>
+                          </div>
+                          <button type="button" class="secondary-button" data-action="add-metadata-mapping">
+                            <span aria-hidden="true">+</span>
+                            新增字段
+                          </button>
+                        </div>
+                        <div class="metadata-table-wrap">
+                          <table class="metadata-config-table">
+                            <thead>
+                              <tr>
+                                <th>原始字段名</th>
+                                <th>目标路径</th>
+                                <th>值类型</th>
+                                <th aria-label="操作"></th>
+                              </tr>
+                            </thead>
+                            <tbody id="metadataMappingsTable"></tbody>
+                          </table>
+                        </div>
+                        <p id="metadataMappingsEmpty" class="metadata-table-empty">暂未配置字段映射</p>
+                      </div>
+                      <div class="metadata-config-section">
+                        <div class="metadata-config-head">
+                          <div>
+                            <h4>默认字段</h4>
+                            <p class="helper-line">仅当文档没有提取到对应字段时写入默认值。</p>
+                          </div>
+                          <button type="button" class="secondary-button" data-action="add-metadata-default">
+                            <span aria-hidden="true">+</span>
+                            新增默认值
+                          </button>
+                        </div>
+                        <div class="metadata-table-wrap">
+                          <table class="metadata-config-table metadata-defaults-table">
+                            <thead>
+                              <tr>
+                                <th>目标路径</th>
+                                <th>默认值（JSON）</th>
+                                <th aria-label="操作"></th>
+                              </tr>
+                            </thead>
+                            <tbody id="metadataDefaultsTable"></tbody>
+                          </table>
+                        </div>
+                        <p id="metadataDefaultsEmpty" class="metadata-table-empty">暂未配置默认字段</p>
+                      </div>
+                      <div class="form-row two-cols">
+                        <div class="field">
+                          <label for="metadataExtractionFormatInput">提取格式</label>
+                          <select id="metadataExtractionFormatInput">
+                            <option value="markdown_fields">Markdown 字段头</option>
+                            <option value="yaml_front_matter">YAML front matter</option>
+                            <option value="none">不提取</option>
+                          </select>
+                        </div>
+                        <div class="field">
+                          <label for="metadataExtractionMaxLinesInput">最多扫描行数</label>
+                          <input id="metadataExtractionMaxLinesInput" type="number" min="10" max="500" value="100" />
+                        </div>
+                      </div>
+                      <label class="inline-check">
+                        <input id="metadataExtractionStripInput" type="checkbox" />
+                        从正文和向量内容中剥离已提取的头部字段
+                      </label>
+                      <label class="inline-check">
+                        <input id="metadataExtractionKeepUnmappedInput" type="checkbox" checked />
+                        将未映射字段保留在 domain
+                      </label>
+                      <p id="metadataExtractionStatus" class="helper-line"></p>
+                      <div class="form-actions">
+                        <button class="primary-button" type="submit">
+                          <span aria-hidden="true">✓</span>
+                          保存提取配置
+                        </button>
+                      </div>
+                    </form>
                   </section>
 
                   <section class="kb-tab-panel hidden" data-kb-panel="upload">
@@ -487,6 +593,7 @@
             <label for="kbDescriptionInput">说明</label>
             <textarea id="kbDescriptionInput" rows="5" maxlength="500"></textarea>
           </div>
+          <p class="helper-line">创建后可在“元数据提取”标签中配置文档头部字段的解析方式。</p>
           <div class="form-actions">
             <button type="button" class="secondary-button" data-action="close-kb-editor">取消</button>
             <button class="primary-button" type="submit">

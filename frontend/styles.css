@@ -647,6 +647,135 @@ select:disabled {
   gap: 6px;
 }
 
+.section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.section-heading h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.metadata-extraction-panel {
+  max-width: 820px;
+}
+
+.metadata-config-section {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.metadata-config-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.metadata-config-head h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.metadata-config-head .helper-line {
+  margin: 4px 0 0;
+}
+
+.metadata-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+}
+
+.metadata-config-table {
+  width: 100%;
+  min-width: 600px;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.metadata-config-table th,
+.metadata-config-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.metadata-config-table th {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.metadata-config-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.metadata-config-table th:nth-child(1) {
+  width: 32%;
+}
+
+.metadata-config-table th:nth-child(2) {
+  width: 38%;
+}
+
+.metadata-config-table th:nth-child(3) {
+  width: 20%;
+}
+
+.metadata-defaults-table th:nth-child(1) {
+  width: 42%;
+}
+
+.metadata-defaults-table th:nth-child(2) {
+  width: 48%;
+}
+
+.metadata-config-table input,
+.metadata-config-table select {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+}
+
+.metadata-config-table input:focus,
+.metadata-config-table select:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(14, 118, 109, 0.12);
+}
+
+.metadata-row-action {
+  width: 46px;
+  text-align: center !important;
+}
+
+.metadata-row-action .icon-button {
+  width: 30px;
+  min-height: 30px;
+  padding: 0;
+}
+
+.metadata-table-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .field label,
 .field span,
 .fieldset legend {

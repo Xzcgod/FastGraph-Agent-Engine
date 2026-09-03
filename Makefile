@@ -65,16 +65,16 @@ dev-embedding:
 
 # Evaluation commands
 eval:
-	@echo "Running evaluation with interactive mode"
-	@bash -c "source scripts/set_env.sh ${ENV:-development} && python -m evals.main --interactive"
+	@echo "Running retrieval evaluation"
+	@bash -c "source scripts/set_env.sh ${ENV:-development} && python -m services.evaluation_service.main"
 
 eval-quick:
 	@echo "Running evaluation with default settings"
-	@bash -c "source scripts/set_env.sh ${ENV:-development} && python -m evals.main --quick"
+	@bash -c "source scripts/set_env.sh ${ENV:-development} && python -m services.evaluation_service.main --limit 8"
 
 eval-no-report:
-	@echo "Running evaluation without generating report"
-	@bash -c "source scripts/set_env.sh ${ENV:-development} && python -m evals.main --no-report"
+	@echo "Running retrieval evaluation without generating report"
+	@bash -c "source scripts/set_env.sh ${ENV:-development} && python -m services.evaluation_service.main --limit 8 --no-report"
 
 lint:
 	ruff check .

@@ -105,6 +105,19 @@ const elements = {
   kbNamespaceInput: document.querySelector("#kbNamespaceInput"),
   kbNameInput: document.querySelector("#kbNameInput"),
   kbDescriptionInput: document.querySelector("#kbDescriptionInput"),
+  metadataExtractionForm: document.querySelector("#metadataExtractionForm"),
+  metadataExtractionEnabledInput: document.querySelector("#metadataExtractionEnabledInput"),
+  metadataExtractionSchemaNameInput: document.querySelector("#metadataExtractionSchemaNameInput"),
+  metadataExtractionSchemaVersionInput: document.querySelector("#metadataExtractionSchemaVersionInput"),
+  metadataMappingsTable: document.querySelector("#metadataMappingsTable"),
+  metadataMappingsEmpty: document.querySelector("#metadataMappingsEmpty"),
+  metadataDefaultsTable: document.querySelector("#metadataDefaultsTable"),
+  metadataDefaultsEmpty: document.querySelector("#metadataDefaultsEmpty"),
+  metadataExtractionFormatInput: document.querySelector("#metadataExtractionFormatInput"),
+  metadataExtractionMaxLinesInput: document.querySelector("#metadataExtractionMaxLinesInput"),
+  metadataExtractionStripInput: document.querySelector("#metadataExtractionStripInput"),
+  metadataExtractionKeepUnmappedInput: document.querySelector("#metadataExtractionKeepUnmappedInput"),
+  metadataExtractionStatus: document.querySelector("#metadataExtractionStatus"),
   kbEditorDrawer: document.querySelector("#kbEditorDrawer"),
   kbEditorTitle: document.querySelector("#kbEditorTitle"),
   knowledgeBaseList: document.querySelector("#knowledgeBaseList"),
@@ -163,6 +176,7 @@ function bindEvents() {
   elements.chatForm.addEventListener("submit", handleChatSubmit);
   elements.agentForm.addEventListener("submit", handleAgentSubmit);
   elements.kbForm.addEventListener("submit", handleKbSubmit);
+  elements.metadataExtractionForm.addEventListener("submit", handleMetadataExtractionSubmit);
   elements.uploadForm.addEventListener("submit", handleUploadSubmit);
 }
 
@@ -206,6 +220,24 @@ async function handleActionClick(event) {
     }
     if (action === "toggle-agent-kb-option") {
       toggleAgentKbOption(id);
+      return;
+    }
+    if (action === "add-metadata-mapping") {
+      addMetadataMappingRow();
+      return;
+    }
+    if (action === "remove-metadata-mapping") {
+      actionTarget.closest("tr")?.remove();
+      updateMetadataTableEmptyState();
+      return;
+    }
+    if (action === "add-metadata-default") {
+      addMetadataDefaultRow();
+      return;
+    }
+    if (action === "remove-metadata-default") {
+      actionTarget.closest("tr")?.remove();
+      updateMetadataTableEmptyState();
       return;
     }
     if (action === "clear-agent-kb-selection") {
@@ -1302,6 +1334,199 @@ function closeKnowledgeBaseEditor() {
   elements.kbNamespaceInput.disabled = false;
 }
 
+function metadataExtractionConfig(kb) {
+  return {
+    enabled: kb?.metadataExtractionJson?.enabled !== false,
+    schema: kb?.metadataExtractionJson?.schema || { name: "generic", version: "1" },
+    mappings: kb?.metadataExtractionJson?.mappings || {},
+    defaults: kb?.metadataExtractionJson?.defaults || {},
+    keepUnmappedInDomain: kb?.metadataExtractionJson?.keepUnmappedInDomain !== false,
+    format: kb?.metadataExtractionJson?.format || "markdown_fields",
+    stripExtractedBlock: kb?.metadataExtractionJson?.stripExtractedBlock !== false,
+    maxLines: numberValue(kb?.metadataExtractionJson?.maxLines, 100),
+  };
+}
+
+function metadataMappingRows(mappings) {
+  return Object.entries(mappings || {}).map(([sourceKey, mapping]) => {
+    const config = typeof mapping === "string" ? { path: mapping } : (mapping || {});
+    return {
+      sourceKey,
+      path: config.path || "",
+      type: config.type || "auto",
+    };
+  });
+}
+
+function metadataDefaultRows(defaults) {
+  return Object.entries(defaults || {}).map(([path, value]) => ({
+    path,
+    value: JSON.stringify(value),
+  }));
+}
+
+function renderMetadataMappingRows(mappings) {
+  const rows = metadataMappingRows(mappings);
+  elements.metadataMappingsTable.innerHTML = rows.map((row) => `
+    <tr>
+      <td><input data-metadata-field="sourceKey" value="${escapeAttr(row.sourceKey)}" placeholder="例如 区域" /></td>
+      <td><input data-metadata-field="path" value="${escapeAttr(row.path)}" placeholder="例如 common.region" /></td>
+      <td>
+        <select data-metadata-field="type">
+          <option value="auto"${row.type === "auto" ? " selected" : ""}>自动</option>
+          <option value="string"${row.type === "string" ? " selected" : ""}>文本</option>
+          <option value="list"${row.type === "list" ? " selected" : ""}>列表</option>
+          <option value="boolean"${row.type === "boolean" ? " selected" : ""}>布尔</option>
+        </select>
+      </td>
+      <td class="metadata-row-action">
+        <button type="button" class="icon-button danger-action" data-action="remove-metadata-mapping" title="删除字段" aria-label="删除字段">×</button>
+      </td>
+    </tr>
+  `).join("");
+  updateMetadataTableEmptyState();
+}
+
+function renderMetadataDefaultRows(defaults) {
+  const rows = metadataDefaultRows(defaults);
+  elements.metadataDefaultsTable.innerHTML = rows.map((row) => `
+    <tr>
+      <td><input data-metadata-default="path" value="${escapeAttr(row.path)}" placeholder="例如 common.documentType" /></td>
+      <td><input data-metadata-default="value" value="${escapeAttr(row.value)}" placeholder='例如 "policy" 或 []' /></td>
+      <td class="metadata-row-action">
+        <button type="button" class="icon-button danger-action" data-action="remove-metadata-default" title="删除默认值" aria-label="删除默认值">×</button>
+      </td>
+    </tr>
+  `).join("");
+  updateMetadataTableEmptyState();
+}
+
+function addMetadataMappingRow() {
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td><input data-metadata-field="sourceKey" placeholder="例如 区域" /></td>
+    <td><input data-metadata-field="path" placeholder="例如 common.region" /></td>
+    <td>
+      <select data-metadata-field="type">
+        <option value="auto">自动</option>
+        <option value="string">文本</option>
+        <option value="list">列表</option>
+        <option value="boolean">布尔</option>
+      </select>
+    </td>
+    <td class="metadata-row-action">
+      <button type="button" class="icon-button danger-action" data-action="remove-metadata-mapping" title="删除字段" aria-label="删除字段">×</button>
+    </td>
+  `;
+  elements.metadataMappingsTable.append(row);
+  updateMetadataTableEmptyState();
+  row.querySelector("[data-metadata-field='sourceKey']")?.focus();
+}
+
+function addMetadataDefaultRow() {
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td><input data-metadata-default="path" placeholder="例如 common.documentType" /></td>
+    <td><input data-metadata-default="value" placeholder='例如 "policy" 或 []' /></td>
+    <td class="metadata-row-action">
+      <button type="button" class="icon-button danger-action" data-action="remove-metadata-default" title="删除默认值" aria-label="删除默认值">×</button>
+    </td>
+  `;
+  elements.metadataDefaultsTable.append(row);
+  updateMetadataTableEmptyState();
+  row.querySelector("[data-metadata-default='path']")?.focus();
+}
+
+function updateMetadataTableEmptyState() {
+  elements.metadataMappingsEmpty.classList.toggle("hidden", Boolean(elements.metadataMappingsTable.rows.length));
+  elements.metadataDefaultsEmpty.classList.toggle("hidden", Boolean(elements.metadataDefaultsTable.rows.length));
+}
+
+function readMetadataMappings() {
+  const mappings = {};
+  for (const row of Array.from(elements.metadataMappingsTable.rows)) {
+    const sourceKey = row.querySelector("[data-metadata-field='sourceKey']")?.value.trim();
+    const path = row.querySelector("[data-metadata-field='path']")?.value.trim();
+    const type = row.querySelector("[data-metadata-field='type']")?.value || "auto";
+    if (!sourceKey && !path) continue;
+    if (!sourceKey || !path) throw new Error("字段映射的原始字段名和目标路径不能为空");
+    mappings[sourceKey] = type === "auto" ? path : { path, type };
+  }
+  return mappings;
+}
+
+function readMetadataDefaults() {
+  const defaults = {};
+  for (const row of Array.from(elements.metadataDefaultsTable.rows)) {
+    const path = row.querySelector("[data-metadata-default='path']")?.value.trim();
+    const rawValue = row.querySelector("[data-metadata-default='value']")?.value.trim();
+    if (!path && !rawValue) continue;
+    if (!path || !rawValue) throw new Error("默认字段的目标路径和默认值不能为空");
+    try {
+      defaults[path] = JSON.parse(rawValue);
+    } catch (error) {
+      throw new Error(`默认值不是有效 JSON：${error.message}`);
+    }
+  }
+  return defaults;
+}
+
+function renderMetadataExtraction() {
+  const kb = state.selectedKnowledgeBaseDetail || selectedKnowledgeBase();
+  if (!kb || !elements.metadataExtractionForm) return;
+  const config = metadataExtractionConfig(kb);
+  elements.metadataExtractionEnabledInput.checked = config.enabled;
+  elements.metadataExtractionSchemaNameInput.value = config.schema.name || "generic";
+  elements.metadataExtractionSchemaVersionInput.value = config.schema.version || "1";
+  renderMetadataMappingRows(config.mappings);
+  renderMetadataDefaultRows(config.defaults);
+  elements.metadataExtractionFormatInput.value = config.format;
+  elements.metadataExtractionMaxLinesInput.value = config.maxLines;
+  elements.metadataExtractionStripInput.checked = config.stripExtractedBlock;
+  elements.metadataExtractionKeepUnmappedInput.checked = config.keepUnmappedInDomain;
+  elements.metadataExtractionStatus.textContent = config.enabled
+    ? `当前格式：${config.format === "markdown_fields" ? "Markdown 字段头" : config.format === "yaml_front_matter" ? "YAML front matter" : "不提取"}`
+    : "元数据提取已关闭，新上传文档将保留完整正文。";
+}
+
+async function handleMetadataExtractionSubmit(event) {
+  event.preventDefault();
+  const kb = selectedKnowledgeBase();
+  if (!kb) return;
+  let mappings;
+  let defaults;
+  try {
+    mappings = readMetadataMappings();
+    defaults = readMetadataDefaults();
+  } catch (error) {
+    toast(`字段配置格式错误：${error.message}`, "error");
+    return;
+  }
+  const payload = {
+    metadataExtractionJson: {
+      enabled: elements.metadataExtractionEnabledInput.checked,
+      schema: {
+        name: elements.metadataExtractionSchemaNameInput.value.trim() || "generic",
+        version: elements.metadataExtractionSchemaVersionInput.value.trim() || "1",
+      },
+      mappings,
+      defaults,
+      keepUnmappedInDomain: elements.metadataExtractionKeepUnmappedInput.checked,
+      format: elements.metadataExtractionFormatInput.value,
+      stripExtractedBlock: elements.metadataExtractionStripInput.checked,
+      maxLines: numberValue(elements.metadataExtractionMaxLinesInput.value, 100),
+    },
+  };
+  const saved = await apiRequest(`/api/v1/admin/platform/knowledge-bases/${encodeURIComponent(kb.id)}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  state.selectedKnowledgeBaseDetail = saved;
+  state.knowledgeBases = state.knowledgeBases.map((item) => item.id === saved.id ? saved : item);
+  renderKnowledgeBases();
+  toast("元数据提取配置已保存");
+}
+
 async function handleKbSubmit(event) {
   event.preventDefault();
   const kbId = elements.kbIdInput.value;
@@ -1482,14 +1707,18 @@ function renderKnowledgeDetail() {
   Array.from(elements.uploadForm.elements || []).forEach((control) => {
     control.disabled = uploadDisabled;
   });
+  Array.from(elements.metadataExtractionForm.elements || []).forEach((control) => {
+    control.disabled = uploadDisabled;
+  });
   renderDocuments();
   renderJobs();
   renderSearchResults();
+  renderMetadataExtraction();
   renderUploadMode();
 }
 
 async function setKnowledgeTab(tab) {
-  if (!["documents", "jobs", "search", "upload"].includes(tab)) return;
+  if (!["documents", "jobs", "search", "metadata", "upload"].includes(tab)) return;
   state.kbTab = tab;
   renderKnowledgeDetail();
   if (tab === "documents") {
@@ -1649,10 +1878,10 @@ async function uploadKnowledgeFiles(kb, files) {
       uploadMode: state.uploadMode,
       source: state.uploadMode === "directory" ? "browser_directory_upload" : "browser_file_upload",
     }));
-    const title = state.uploadMode === "file" && supported.length === 1 && elements.uploadTitleInput.value.trim()
+    const title = state.uploadMode === "file" && supported.length === 1
       ? elements.uploadTitleInput.value.trim()
-      : file.name.replace(/\.[^.]+$/, "");
-    form.append("title", title);
+      : "";
+    if (title) form.append("title", title);
     elements.uploadStatus.textContent = `正在上传 ${completed + failed + 1}/${supported.length}：${sourceRef}`;
     try {
       await apiRequest(`/api/v1/admin/platform/knowledge-bases/${encodeURIComponent(kb.id)}/ingest/file`, {
@@ -1939,12 +2168,15 @@ async function deleteSelectedKnowledgeBase() {
   await apiRequest(`/api/v1/admin/platform/knowledge-bases/${encodeURIComponent(kb.id)}`, {
     method: "DELETE",
   });
+  state.selectedAgentKbIds = state.selectedAgentKbIds.filter((kbId) => kbId !== kb.id);
+  renderKnowledgeOptions(state.selectedAgentKbIds);
   state.selectedKbId = "";
   state.selectedKnowledgeBaseDetail = null;
   state.documents = [];
   state.jobs = [];
   state.searchResults = [];
   toast("知识库已删除");
+  await Promise.all([refreshPlatformAgents(), refreshUserAgents()]);
   await refreshKnowledge({ refreshSelected: false, refreshTabData: false, refreshOptions: true });
 }
 

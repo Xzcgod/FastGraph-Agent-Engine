@@ -138,7 +138,11 @@ async def delete_knowledge_base(
     kb_id: str,
     user: User = Depends(require_platform_admin),
 ):
-    return await knowledge_service_client.delete(f"/internal/v1/kb/bases/{kb_id}", actor=user)
+    result = await knowledge_service_client.delete(f"/internal/v1/kb/bases/{kb_id}", actor=user)
+    unlinked_agent_count = await agent_config_service.unlink_knowledge_base(kb_id, user)
+    if isinstance(result, dict):
+        result["unlinkedAgentCount"] = unlinked_agent_count
+    return result
 
 
 @router.post("/knowledge-bases/{kb_id}/archive")
