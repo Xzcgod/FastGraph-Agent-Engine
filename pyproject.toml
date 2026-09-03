@@ -62,6 +62,7 @@ dependencies = [
     "tqdm>=4.67.1",
     "colorama>=0.4.6",
     "httpx>=0.28.1",
+    "jieba>=0.42.1",
 
     # ✅ 仅保留 PDF 轻量解析库
     "pymupdf>=1.23.0",
