@@ -82,6 +82,17 @@ _LANGFUSE_HANDLER = _build_langfuse_handler()
 _CALLBACKS = [_LANGFUSE_HANDLER] if _LANGFUSE_HANDLER else None
 
 
+def get_langfuse_callbacks() -> Optional[List[CallbackHandler]]:
+    """返回统一挂载的 Langfuse 回调列表（未配置密钥时为 None）。
+
+    供 LangGraph 图调用层级使用：把回调挂到 ainvoke/astream 的 config["callbacks"]，
+    这样图的「根 on_chain_start」会把 metadata 里的 langfuse_session_id/user_id/tags
+    解析成 trace 级属性。否则这些 key 只落在 LLM 调用的 generation metadata 里，
+    无法在 Langfuse 的 Sessions / Users 页面聚合。
+    """
+    return _CALLBACKS
+
+
 def _chat_openai(model: str, **kwargs) -> ChatOpenAI:
     """构造 ChatOpenAI，并统一挂载 Langfuse 追踪回调。"""
     return ChatOpenAI(model=model, callbacks=_CALLBACKS, **kwargs)

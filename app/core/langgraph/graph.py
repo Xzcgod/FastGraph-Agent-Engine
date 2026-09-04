@@ -59,7 +59,7 @@ from app.core.logging import logger
 from app.core.prompts import load_system_prompt
 from app.schemas.chat import Message as ApiMessage
 from app.schemas.graph import GraphState
-from app.services.llm import LLMRegistry, llm_service
+from app.services.llm import LLMRegistry, get_langfuse_callbacks, llm_service
 from app.utils.graph import prepare_messages
 
 
@@ -222,23 +222,11 @@ class Chatbot:
         messages = prepare_messages(state.messages, llm=model, system_prompt=system_prompt)
 
         # ================================================================
-        # 步骤 5: 调用 LLM（注入 Langfuse session/user 追踪属性）
+        # 步骤 5: 调用 LLM
         # ================================================================
-        # Langfuse v3 通过 run metadata 的 langfuse_* 键识别 session/user/tags，
-        # 这里把 LangGraph 的 thread_id / user_id 透传进去，使 trace 可按会话和用户聚合。
-        runnable_config = dict(config)
-        configurable = runnable_config.get("configurable") or {}
-        langfuse_tags = [str(configurable.get("agent_code"))] if configurable.get("agent_code") else ["chat"]
-        langfuse_metadata: Dict[str, Any] = {"langfuse_tags": langfuse_tags}
-        if configurable.get("thread_id"):
-            langfuse_metadata["langfuse_session_id"] = str(configurable["thread_id"])
-        if configurable.get("user_id"):
-            langfuse_metadata["langfuse_user_id"] = str(configurable["user_id"])
-        runnable_config["metadata"] = {
-            **(runnable_config.get("metadata") or {}),
-            **langfuse_metadata,
-        }
-        response = model.invoke(messages, runnable_config)
+        # Langfuse 的 session/user/tags 已在顶层 ainvoke/astream 的 config["metadata"]
+        # 中注入（见 _build_config），这里只需沿用 LangGraph 节点透传下来的 config。
+        response = model.invoke(messages, config)
         return {"messages": [response]}
 
     def create_graph(self, checkpointer):
@@ -319,6 +307,39 @@ class Chatbot:
         # 编译图，绑定 Checkpointer 用于持久化状态
         return workflow.compile(checkpointer=checkpointer)
 
+    def _build_config(
+        self,
+        session_id: str,
+        user_id: str,
+        model_name: Optional[str] = None,
+        agent_code: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        构建 LangGraph 运行配置，并注入 Langfuse trace 级属性。
+
+        关键点：session/user/tags 必须放在「顶层 config 的 metadata」里（而不是 LLM 调用的
+        metadata），因为 Langfuse 的 CallbackHandler 只在 trace 根的 on_chain_start 时
+        （parent_run_id 为 None）解析 langfuse_session_id / langfuse_user_id / langfuse_tags。
+        同时把回调挂到 config["callbacks"]，确保图的根链式调用能被 handler 看到。
+        """
+        config: Dict[str, Any] = {
+            "configurable": {
+                "thread_id": session_id,
+                "user_id": user_id,
+                "model_name": model_name,
+                "agent_code": agent_code,
+            }
+        }
+        callbacks = get_langfuse_callbacks()
+        if callbacks:
+            config["callbacks"] = callbacks
+        config["metadata"] = {
+            "langfuse_session_id": session_id,
+            "langfuse_user_id": user_id,
+            "langfuse_tags": [agent_code] if agent_code else ["chat"],
+        }
+        return config
+
     # ====================================================================
     # 公共接口
     # ====================================================================
@@ -351,15 +372,13 @@ class Chatbot:
         """
         await self.initialize()
 
-        # 构建运行配置（thread_id 用于 Checkpoint 关联）
-        config = {
-            "configurable": {
-                "thread_id": session_id,
-                "user_id": user_id,
-                "model_name": model_name,
-                "agent_code": agent_code,
-            }
-        }
+        # 构建运行配置（thread_id 用于 Checkpoint 关联，metadata 用于 Langfuse 聚合）
+        config = self._build_config(
+            session_id=session_id,
+            user_id=user_id,
+            model_name=model_name,
+            agent_code=agent_code,
+        )
 
         # 将 Pydantic Message 转为字典（LangGraph 输入格式）
         input_messages = [{"role": m.role, "content": m.content} for m in messages]
@@ -413,14 +432,12 @@ class Chatbot:
         """
         await self.initialize()
 
-        config = {
-            "configurable": {
-                "thread_id": session_id,
-                "user_id": user_id,
-                "model_name": model_name,
-                "agent_code": agent_code,
-            }
-        }
+        config = self._build_config(
+            session_id=session_id,
+            user_id=user_id,
+            model_name=model_name,
+            agent_code=agent_code,
+        )
 
         input_messages = [{"role": m.role, "content": m.content} for m in messages]
         input_state = {
@@ -495,7 +512,15 @@ class Chatbot:
             str: 描述执行结果的文本消息。
         """
         await self.initialize()
-        config = {"configurable": {"thread_id": session_id}}
+        # 恢复路径没有 user_id，仅注入 session 归属 + 回调，使恢复产生的 trace 归入同一会话
+        config: Dict[str, Any] = {"configurable": {"thread_id": session_id}}
+        callbacks = get_langfuse_callbacks()
+        if callbacks:
+            config["callbacks"] = callbacks
+        config["metadata"] = {
+            "langfuse_session_id": session_id,
+            "langfuse_tags": ["chat"],
+        }
 
         # 检查图是否真的处于暂停状态
         snapshot = await self._graph.aget_state(config)
