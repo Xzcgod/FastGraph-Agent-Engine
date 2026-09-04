@@ -11,7 +11,7 @@ LangGraph 工具注册中心 - 统一管理和导出所有可用工具。
 │ Feature Flag        │ 工具                                            │
 ├────────────────────┼────────────────────────────────────────────────┤
 │ (基础工具)           │ DuckDuckGo 搜索                                │
-│ web_search          │ Tavily 搜索（无 Key 降级 DuckDuckGo）            │
+│ web_search          │ AnySearch 搜索（无 Key 降级 DuckDuckGo）          │
 │ code_interpreter    │ Python REPL 代码沙盒（可选）                     │
 │ memory_tools        │ SaveMemory + SearchMemory                       │
 │ email_assistant     │ PrepareEmail + SendEmail（含审批中断）           │
@@ -33,7 +33,7 @@ from app.core.logging import logger
 # 导入所有工具实例
 # ============================================================================
 
-from .tavily_search import tavily_search_tool
+from .anysearch_search import anysearch_search_tool
 from .duckduckgo_search import duckduckgo_search_tool
 from .memory_tools import save_memory_tool, search_memory_tool
 from .email_tools import prepare_email_tool, send_email_tool
@@ -56,7 +56,7 @@ base_tools = [duckduckgo_search_tool]
 # value: 该功能激活时绑定的工具列表
 all_tools_map: dict[str, list[BaseTool]] = {
     # 联网搜索 — AnySearch（内部已实现无 API Key 时自动降级 DuckDuckGo）
-    "web_search": [tavily_search_tool],
+    "web_search": [anysearch_search_tool],
 
     # 长期记忆 — Agent 可主动保存/检索用户偏好
     "memory_tools": [save_memory_tool, search_memory_tool],

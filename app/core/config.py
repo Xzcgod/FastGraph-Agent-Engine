@@ -153,7 +153,7 @@ class Settings:
     - CORS 跨域：允许的来源域名列表。
     - Langfuse 监控：可观测性服务的公钥、私钥、服务地址。
     - LLM 配置：API Key、Base URL、默认模型、温度、最大 Token 数、重试次数。
-    - Tavily 搜索：联网搜索的 API Key。
+    - AnySearch 搜索：联网搜索的 API Key。
     - 短期记忆：滚动摘要触发的消息数量阈值。
     - 邮件 SMTP：发件服务器、端口、认证信息（支持 QQ 邮箱）。
     - 独立知识库微服务：服务地址、服务令牌、调用超时。
@@ -224,12 +224,7 @@ class Settings:
         self.MAX_LLM_CALL_RETRIES = int(os.getenv("MAX_LLM_CALL_RETRIES", "3"))
 
         # ====================================================================
-        # Tavily 联网搜索（为 AI Agent 设计的搜索 API）
-        # ====================================================================
-        self.TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
-
-        # ====================================================================
-        # AnySearch 联网搜索（替代 Tavily，Bearer auth）
+        # AnySearch 联网搜索（Bearer auth）
         # ====================================================================
         self.ANYSEARCH_API_URL = os.getenv("ANYSEARCH_API_URL", "https://api.anysearch.com/v1/search")
         self.ANYSEARCH_API_KEY = os.getenv("ANYSEARCH_API_KEY", "")
