@@ -104,6 +104,17 @@ async def _has_searchable_chunk(session: AsyncSession, ctx: SearchContext) -> bo
 
 # --- 3. 命中组装与重排 ---
 
+def normalize_score(value: float, scale: float) -> float:
+    """把无上界分数 sigmoid 压缩到 (0,1)，保持单调（不改变排序）。
+
+    score = value / (value + scale)。向量相似度（0~1）无需归一化；
+    keyword_rank 位置加权分（几十~几百）用 scale=100；fulltext 的 ts_rank 用 scale=1。
+    """
+    if value <= 0:
+        return 0.0
+    return value / (value + scale)
+
+
 def _hit_to_dict(entry: RecallEntry, *, weighted_score: float | None = None) -> SearchHit:
     """把召回条目组装成对外 SearchHit。weighted_score 可选，存业务加权纯 bonus。"""
     chunk, document, kb, raw_distance, score = entry

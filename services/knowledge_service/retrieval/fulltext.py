@@ -31,6 +31,7 @@ from services.knowledge_service.retrieval.helpers import (
     _hit_to_dict,
     _maybe_rerank,
     _metadata_sql_conditions,
+    normalize_score,
 )
 from services.knowledge_service.service import metadata_matches
 
@@ -63,7 +64,9 @@ async def _fulltext_recall(session: AsyncSession, ctx: SearchContext, limit: int
     for chunk, document, kb, raw_rank in rows:
         if not metadata_matches(ctx.metadata_filter, document.metadata_json or {}, chunk.metadata_json or {}):
             continue
-        score = float(raw_rank or 0.0)
+        score = normalize_score(float(raw_rank or 0.0), scale=1.0)
+        if score < ctx.min_score:
+            continue
         entries.append((chunk, document, kb, None, score))
     return entries
 

@@ -35,6 +35,7 @@ from services.knowledge_service.retrieval.helpers import (
     _has_searchable_chunk,
     _hit_to_dict,
     _maybe_rerank,
+    normalize_score,
 )
 from services.knowledge_service.service import metadata_matches
 
@@ -730,8 +731,8 @@ class KeywordRankSearchStrategy:
     流程：jieba 分词 → ILIKE 粗筛（≤500 chunk）→ 焦点词硬过滤 → 位置加权评分
     → policy 规则重排 → 排序。不调用 embedding API。
 
-    score 为「关键词位置加权分」（量纲几十~几百，非 0~1 相似度），rawScore 透传
-    未乘规则 multiplier 的原始分。
+    score 已用 sigmoid（scale=100）归一化到 0~1，便于与其他策略统一 min_score 过滤
+    与兜底阈值判定；rawScore 透传未归一化、未乘规则 multiplier 的原始位置加权分。
     """
 
     name = "keyword_rank"
@@ -786,13 +787,14 @@ class KeywordRankSearchStrategy:
                 document.source_ref,
             )
             final = raw_score * float(adjustment["multiplier"])
-            if final > 0 and final >= ctx.min_score:
-                scored.append((final, raw_score, (chunk, document, kb, None, final)))
+            normalized = normalize_score(final, scale=100.0)
+            if final > 0 and normalized >= ctx.min_score:
+                scored.append((normalized, raw_score, (chunk, document, kb, None, normalized)))
 
         scored.sort(key=lambda item: item[0], reverse=True)
 
         items: List[SearchHit] = []
-        for _final, raw_score, entry in scored[: ctx.top_k]:
+        for _normalized, raw_score, entry in scored[: ctx.top_k]:
             hit = _hit_to_dict(entry)
             hit["rawScore"] = round(raw_score, 6)
             items.append(hit)
