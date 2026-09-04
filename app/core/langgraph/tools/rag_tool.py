@@ -29,6 +29,12 @@ async def _search(query: str, kb_ids: List[str], top_k: int, min_score: float) -
             },
         )
         items = payload.get("items", []) if isinstance(payload, dict) else []
+        logger.warning(
+            "knowledge_base_search_response",
+            query=query,
+            kb_ids=kb_ids,
+            item_count=len(items) if isinstance(items, list) else -1,
+        )
         allow_web_fallback = bool(payload.get("allowWebFallback")) if isinstance(payload, dict) else False
 
         # 知识库开启联网兜底时，无条件联网补充（激进策略）：勾了联网就联网，
@@ -98,6 +104,15 @@ async def knowledge_base_search(
             bound_ids = [normalized]
         else:
             logger.warning("knowledge_base_search_kb_not_bound", kb_id=normalized, bound_ids=bound_ids)
+    logger.warning(
+        "knowledge_base_search_invoke",
+        query=query,
+        kb_id=kb_id,
+        injected_kb_ids=kb_ids,
+        bound_ids=bound_ids,
+        top_k=top_k,
+        min_score=min_score,
+    )
     return await _search(query, bound_ids, top_k, min_score)
 
 
