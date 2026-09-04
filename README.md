@@ -23,22 +23,22 @@
         ▼
 知识库微服务 (services/knowledge_service/)  端口 8010
   ├─ 文档上传 → 解析 → 切片 → embedding → 入库任务（状态机）
-  └─ pgvector 向量检索（本地 Ollama bge-m3）
+  └─ 可插拔检索算法（vector/weighted/hybrid/keyword/fulltext/keyword_rank，向量类支持 rerank 变体）
 ```
 
 ### 核心数据流
 
 1. **平台管理员**在控制台创建知识库、上传文档（解析 + 切片 + embedding + 入库任务记录），配置 Agent（模型、角色、工具开关、知识库绑定）并发布。
 2. **普通用户**选择已发布 Agent 发起对话，主后端读取 Agent 配置。
-3. Agent 启用知识库时，LLM 通过 `knowledge_base_search` **工具按需检索**——检索范围（kbIds/topK/scoreThreshold）经 LangGraph 的 `InjectedState` 从图状态注入，对 LLM 不可见，且不预改写用户消息。
+3. Agent 启用知识库时，LLM 通过 `knowledge_base_search` **工具按需检索**——检索参数（topK/scoreThreshold）经 LangGraph 的 `InjectedState` 从图状态注入对 LLM 不可见；`kb_id` 可由 LLM 从绑定知识库中自选；不预改写用户消息。
 4. LangGraph 状态图（agent ⇄ tools 循环）驱动多轮对话，PostgreSQL Checkpoint 持久化状态，支持 HITL 中断（如邮件审批）。
 
 ## ✨ 核心特性
 
 - 🧠 **状态化工作流**：基于 LangGraph，PostgreSQL Checkpoint 持久化，支持多轮对话与长期记忆压缩。
 - 🔄 **高可用模型路由**：对接 DeepSeek 官方及 OpenAI 兼容接口，内置指数退避重试与模型故障自动切换。
-- 🧰 **动态工具箱**：按 Feature Flag 动态挂载工具——联网搜索（Tavily/DuckDuckGo）、知识库检索、长期记忆、邮件助手、代码沙盒。
-- 📚 **独立知识库服务**：文档上传、切片、pgvector 检索由 `services/knowledge_service` 负责，主后端只做权限校验与代理。
+- 🧰 **动态工具箱**：按 Feature Flag 动态挂载工具——联网搜索（AnySearch/DuckDuckGo）、知识库检索、长期记忆、邮件助手、代码沙盒。
+- 📚 **独立知识库服务**：文档上传、切片、多算法可插拔检索由 `services/knowledge_service` 负责，主后端只做权限校验与代理。检索算法支持 vector/weighted/hybrid/keyword/fulltext/keyword_rank，向量类可配 rerank 变体；每个知识库可独立配置检索算法与联网兜底。
 - 💾 **长期记忆**：Agent 自主保存/检索用户偏好。
 - ✉️ **带审批的邮件助手**：HITL 中断，发邮件前强制人工确认。
 - 👁️ **可观测性**：Langfuse 链路追踪 + Prometheus/Grafana 监控 + structlog 结构化日志。
