@@ -39,9 +39,14 @@ from services.knowledge_service.retrieval.weighted import WeightedVectorSearchSt
 from services.knowledge_service.service import problem
 
 # 注册所有检索策略（按 name 索引，请求 strategy 字段据此查找）。
-register_strategy(VectorSearchStrategy())
-register_strategy(WeightedVectorSearchStrategy())
-register_strategy(HybridSearchStrategy())
+# 向量类策略区分「是否 rerank」：无后缀=不重排，`_reranker` 后缀=重排；
+# 无嵌入策略（keyword/fulltext/keyword_rank）不提供 rerank 变体。
+register_strategy(VectorSearchStrategy(rerank=False))
+register_strategy(VectorSearchStrategy(rerank=True))
+register_strategy(WeightedVectorSearchStrategy(rerank=False))
+register_strategy(WeightedVectorSearchStrategy(rerank=True))
+register_strategy(HybridSearchStrategy(rerank=False))
+register_strategy(HybridSearchStrategy(rerank=True))
 register_strategy(KeywordSearchStrategy())
 register_strategy(FulltextSearchStrategy())
 register_strategy(KeywordRankSearchStrategy())

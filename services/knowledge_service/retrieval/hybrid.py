@@ -45,13 +45,20 @@ def _keyword_bonus(query: str, chunk_text: str) -> float:
 
 
 class HybridSearchStrategy:
-    """混合检索（轻量）：向量召回 + 关键词加分 + rerank 融合。"""
+    """混合检索（轻量）：向量召回 + 关键词加分 +（可选）rerank 融合。
 
-    name = "hybrid"
+    实例通过 `rerank` 区分是否精排：`hybrid`（不重排）与 `hybrid_reranker`（重排）。
+    当策略显式指定 rerank 时覆盖请求级 rerank 布尔（算法名优先）。
+    """
+
+    def __init__(self, rerank: bool = False) -> None:
+        self.rerank = rerank
+        self.name = "hybrid_reranker" if rerank else "hybrid"
 
     async def search(self, session: AsyncSession, ctx: SearchContext) -> List[SearchHit]:
         if not await _has_searchable_chunk(session, ctx):
             return []
+        ctx.rerank = self.rerank
         entries = await _vector_recall(session, ctx, ctx.top_k * settings.search_oversample_factor)
         if not entries:
             return []

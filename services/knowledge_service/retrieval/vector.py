@@ -57,13 +57,20 @@ async def _vector_recall(session: AsyncSession, ctx: SearchContext, limit: int) 
 
 
 class VectorSearchStrategy:
-    """纯向量检索：HNSW 召回 + metadata 粗筛 + Python 精筛 + rerank。"""
+    """纯向量检索：HNSW 召回 + metadata 粗筛 + Python 精筛 +（可选）rerank。
 
-    name = "vector"
+    实例通过 `rerank` 区分是否精排：`vector`（不重排）与 `vector_reranker`（重排）。
+    当策略显式指定 rerank 时覆盖请求级 rerank 布尔（算法名优先）。
+    """
+
+    def __init__(self, rerank: bool = False) -> None:
+        self.rerank = rerank
+        self.name = "vector_reranker" if rerank else "vector"
 
     async def search(self, session: AsyncSession, ctx: SearchContext) -> List[SearchHit]:
         if not await _has_searchable_chunk(session, ctx):
             return []
+        ctx.rerank = self.rerank
         entries = await _vector_recall(session, ctx, ctx.top_k * settings.search_oversample_factor)
         items = [_hit_to_dict(entry) for entry in entries]
         reranked = await _maybe_rerank(ctx, items)
