@@ -55,7 +55,7 @@ base_tools = [duckduckgo_search_tool]
 # key: 与 FeatureFlags Schema 的字段名完全一致
 # value: 该功能激活时绑定的工具列表
 all_tools_map: dict[str, list[BaseTool]] = {
-    # 联网搜索 — Tavily（内部已实现无 API Key 时自动降级 DuckDuckGo）
+    # 联网搜索 — AnySearch（内部已实现无 API Key 时自动降级 DuckDuckGo）
     "web_search": [tavily_search_tool],
 
     # 长期记忆 — Agent 可主动保存/检索用户偏好
