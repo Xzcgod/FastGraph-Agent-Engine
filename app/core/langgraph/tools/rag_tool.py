@@ -12,7 +12,9 @@ from typing import Annotated, List, Optional
 from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
 
+from app.core.config import settings
 from app.core.logging import logger
+from app.services.anysearch import anysearch_client
 from app.services.knowledge_client import knowledge_service_client
 
 
@@ -28,8 +30,13 @@ async def _search(query: str, kb_ids: List[str], top_k: int, min_score: float) -
             },
         )
         items = payload.get("items", []) if isinstance(payload, dict) else []
-        if not items:
-            return "未检索到匹配知识。请如实告知用户文档中没有包含此信息。"
+        top_score = float(items[0].get("score") or 0.0) if items else 0.0
+        if not items or top_score < settings.KNOWLEDGE_FALLBACK_SCORE:
+            fallback = await _web_fallback(query)
+            if fallback:
+                return fallback
+            if not items:
+                return "未检索到匹配知识。请如实告知用户文档中没有包含此信息。"
 
         parts = []
         for index, item in enumerate(items, start=1):
@@ -43,6 +50,24 @@ async def _search(query: str, kb_ids: List[str], top_k: int, min_score: float) -
     except Exception as exc:
         logger.exception("knowledge_base_search_failed", error=str(exc))
         return "检索失败：knowledge-service 当前不可用或返回异常。"
+
+
+async def _web_fallback(query: str) -> str:
+    """知识库检索未命中或低分时，用 AnySearch 联网搜索兜底。"""
+    try:
+        items = await anysearch_client.search_web(query, top_k=5)
+    except Exception as exc:
+        logger.exception("knowledge_web_fallback_failed", error=str(exc))
+        return ""
+    if not items:
+        return ""
+    parts = [f"知识库未命中，「{query}」的联网搜索补充："]
+    for index, item in enumerate(items, start=1):
+        title = item.get("title") or item.get("url") or "Untitled"
+        url = item.get("url") or ""
+        snippet = item.get("snippet") or ""
+        parts.append(f"{index}. {title}\n   {snippet}\n   {url}")
+    return "\n".join(parts)
 
 
 @tool

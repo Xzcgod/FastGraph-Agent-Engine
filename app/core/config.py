@@ -229,6 +229,20 @@ class Settings:
         self.TAVILY_API_KEY = os.getenv("TAVILY_API_KEY", "")
 
         # ====================================================================
+        # AnySearch 联网搜索（替代 Tavily，Bearer auth）
+        # ====================================================================
+        self.ANYSEARCH_API_URL = os.getenv("ANYSEARCH_API_URL", "https://api.anysearch.com/v1/search")
+        self.ANYSEARCH_API_KEY = os.getenv("ANYSEARCH_API_KEY", "")
+        self.ANYSEARCH_ZONE = os.getenv("ANYSEARCH_ZONE", "cn")
+        self.ANYSEARCH_LANGUAGE = os.getenv("ANYSEARCH_LANGUAGE", "zh-CN")
+
+        # ====================================================================
+        # 知识库检索兜底阈值
+        # ====================================================================
+        # 知识库检索 top1 分数低于此值时，自动用联网搜索兜底（针对向量类 0~1 量纲）。
+        self.KNOWLEDGE_FALLBACK_SCORE = float(os.getenv("KNOWLEDGE_FALLBACK_SCORE", "0.5"))
+
+        # ====================================================================
         # 短期记忆滚动摘要阈值
         # ====================================================================
         # 当对话消息数量超过此阈值时，旧消息会被压缩为摘要文本，减少 Token 消耗
