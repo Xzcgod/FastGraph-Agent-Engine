@@ -30,11 +30,13 @@ async def _search(query: str, kb_ids: List[str], top_k: int, min_score: float) -
             },
         )
         items = payload.get("items", []) if isinstance(payload, dict) else []
+        allow_web_fallback = bool(payload.get("allowWebFallback")) if isinstance(payload, dict) else False
         top_score = float(items[0].get("score") or 0.0) if items else 0.0
         if not items or top_score < settings.KNOWLEDGE_FALLBACK_SCORE:
-            fallback = await _web_fallback(query)
-            if fallback:
-                return fallback
+            if allow_web_fallback:
+                fallback = await _web_fallback(query)
+                if fallback:
+                    return fallback
             if not items:
                 return "未检索到匹配知识。请如实告知用户文档中没有包含此信息。"
 

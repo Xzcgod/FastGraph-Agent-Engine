@@ -69,8 +69,22 @@ async def _resolve_strategy_name(session: AsyncSession, ctx: SearchContext) -> s
     return settings.default_search_strategy
 
 
+async def _resolve_allow_web_fallback(session: AsyncSession, ctx: SearchContext) -> bool:
+    """解析是否允许联网兜底：命中范围内任一知识库配置了 allowWebFallback 即为 True。
+
+    默认 False（保守），需知识库显式开启。知识库级开关存于 searchPolicyJson.allowWebFallback。
+    """
+    if not ctx.kb_ids:
+        return False
+    kbs = (await session.execute(select(KnowledgeBase).where(KnowledgeBase.id.in_(ctx.kb_ids)))).scalars().all()
+    return any(
+        isinstance(kb.search_policy_json, dict) and bool(kb.search_policy_json.get("allowWebFallback"))
+        for kb in kbs
+    )
+
+
 async def search(session: AsyncSession, payload: Dict[str, Any]) -> Dict[str, Any]:
-    """检索分发器：解析请求 → 选策略 → 执行 → 返回 items。"""
+    """检索分发器：解析请求 → 选策略 → 执行 → 返回 items + allowWebFallback。"""
     ctx = SearchContext.from_payload(payload)
     strategy_name = await _resolve_strategy_name(session, ctx)
     strategy = get_strategy(strategy_name)
@@ -81,7 +95,8 @@ async def search(session: AsyncSession, payload: Dict[str, Any]) -> Dict[str, An
             f"unknown search strategy: {strategy_name}",
         )
     hits = await strategy.search(session, ctx)
-    return {"items": hits, "total": len(hits)}
+    allow_web_fallback = await _resolve_allow_web_fallback(session, ctx)
+    return {"items": hits, "total": len(hits), "allowWebFallback": allow_web_fallback}
 
 
 __all__ = ["search", "get_strategy", "register_strategy", "SearchContext"]
