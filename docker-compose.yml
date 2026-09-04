@@ -23,7 +23,7 @@ services:
   # - frontend:          宿主机 http://127.0.0.1:5174
   # - backend/control:   宿主机 http://127.0.0.1:8000
   # - knowledge-service: 宿主机 http://127.0.0.1:8010
-  # - db/ollama: Docker
+  # - db: Docker
   # ======================================================================
 
   # Local OpenAI-compatible embedding provider.

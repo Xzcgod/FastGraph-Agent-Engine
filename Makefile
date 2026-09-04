@@ -52,7 +52,7 @@ dev-infra:
 		echo "Environment file $$ENV_FILE not found. Please create it."; \
 		exit 1; \
 	fi; \
-	APP_ENV=development $(DOCKER_COMPOSE) --env-file $$ENV_FILE up -d db ollama
+	APP_ENV=development $(DOCKER_COMPOSE) --env-file $$ENV_FILE up -d db
 
 dev-embedding:
 	@ENV_FILE=.env.development; \
@@ -212,7 +212,7 @@ help:
 	@echo "  dev-backend: Run backend control-plane locally on port 8000"
 	@echo "  dev-knowledge: Run knowledge-service locally on port 8010"
 	@echo "  dev-frontend: Run static frontend locally on port 5174"
-	@echo "  dev-infra: Run Docker infra only (Postgres, Ollama)"
+	@echo "  dev-infra: Run Docker infra only (Postgres)"
 	@echo "  dev-embedding: Start Ollama and pull the bge-m3 embedding model"
 	@echo "  test: Run tests"
 	@echo "  clean: Clean up"

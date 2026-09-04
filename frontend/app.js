@@ -948,7 +948,7 @@ function editAgent(agentId) {
   elements.knowledgeEnabledInput.checked = Boolean(agent.knowledge?.enabled);
   elements.agentTopKInput.value = String(agent.knowledge?.topK || 5);
   elements.agentScoreInput.value = String(agent.knowledge?.scoreThreshold || 0);
-  renderKnowledgeOptions(agent.knowledge?.kbIds || []);
+  renderKnowledgeOptions(validAgentKbIds(agent.knowledge?.kbIds || []));
 }
 
 function resetAgentForm() {
@@ -1153,7 +1153,9 @@ function renderKnowledgeOptions(selectedIds = state.selectedAgentKbIds) {
   const selected = new Set(selectedValues);
   const options = agentKnowledgeOptions();
   const selectableOptions = options.filter((kb) => kb.status === "active");
-  const selectedItems = selectedValues.map((kbId) => findKnowledgeBaseById(kbId) || { id: kbId, name: shortId(kbId) });
+  const selectedItems = selectedValues
+    .map((kbId) => findKnowledgeBaseById(kbId))
+    .filter(Boolean);
   const keyword = state.agentKbKeyword.trim().toLowerCase();
   const filteredOptions = selectableOptions.filter((kb) => {
     const searchable = [
@@ -1168,7 +1170,7 @@ function renderKnowledgeOptions(selectedIds = state.selectedAgentKbIds) {
   const controlDisabled = selectableOptions.length === 0 ? " disabled" : "";
   const selectedTags = selectedItems.length
     ? selectedItems.slice(0, 2).map((kb) => `
-        <span class="agent-kb-tag" title="${escapeAttr(kb.name || kb.id)}">${escapeHtml(kb.name || kb.id)}</span>
+        <span class="agent-kb-tag" title="${escapeAttr(kb.name)}">${escapeHtml(kb.name)}</span>
       `).join("")
     : `<span class="agent-kb-placeholder">选择知识库</span>`;
   const overflowTag = selectedItems.length > 2
@@ -1242,6 +1244,13 @@ function agentKnowledgeOptions() {
     if (kb?.id) merged.set(kb.id, kb);
   });
   return Array.from(merged.values());
+}
+
+function validAgentKbIds(kbIds) {
+  const known = agentKnowledgeOptions();
+  if (!known.length) return kbIds || [];
+  const knownIds = new Set(known.map((kb) => kb.id));
+  return (kbIds || []).filter((kbId) => knownIds.has(kbId));
 }
 
 function setSelectedAgentKbIds(selectedIds) {

@@ -103,10 +103,8 @@ function Get-PidFile {
 }
 
 function Warn-IfInfraMissing {
-    foreach ($infraPort in 5432, 11434) {
-        if (-not (Test-PortListening -Port $infraPort)) {
-            Write-Warning "Port $infraPort is not listening. Start the Docker infrastructure first if the app needs PostgreSQL or Ollama."
-        }
+    if (-not (Test-PortListening -Port 5432)) {
+        Write-Warning "Port 5432 is not listening. Start the Docker infrastructure first if the app needs PostgreSQL."
     }
 }
 
