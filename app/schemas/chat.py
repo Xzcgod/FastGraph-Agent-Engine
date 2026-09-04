@@ -84,7 +84,7 @@ class FeatureFlags(BaseModel):
     ┌───────────────────┬──────────────────────────────────────────┐
     │ 开关名             │ 功能说明                                  │
     ├───────────────────┼──────────────────────────────────────────┤
-    │ web_search        │ 联网搜索（Tavily，无 Key 自动降级 DuckDuckGo）│
+    │ web_search        │ 联网搜索（AnySearch，无 Key 自动降级 DuckDuckGo）│
     │ code_interpreter  │ Python 代码沙盒执行                        │
     │ memory_tools      │ 长期记忆（Agent 主动保存/检索用户偏好）      │
     │ email_assistant   │ 邮件助手（含 Human-in-the-loop 审批）       │
@@ -102,7 +102,7 @@ class FeatureFlags(BaseModel):
     """
     model_config = {"extra": "ignore"}
 
-    # 联网搜索（Tavily，无 API Key 时自动降级为 DuckDuckGo）
+    # 联网搜索（AnySearch，无 API Key 时自动降级为 DuckDuckGo）
     web_search: bool = Field(default=False, description="是否开启联网搜索能力")
 
     # Python 代码沙盒（PythonREPLTool，需要在 Docker 容器中运行以确保安全）
