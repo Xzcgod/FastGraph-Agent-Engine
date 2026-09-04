@@ -608,6 +608,13 @@
               <option value="keyword_rank">keyword_rank · 规则重排</option>
             </select>
           </div>
+          <div class="field">
+            <label class="switch-row">
+              <input id="kbWebFallbackInput" type="checkbox" />
+              <span>未命中时联网搜索兜底</span>
+            </label>
+            <p class="helper-line">检索无结果或相关度低时，用联网搜索补充。敏感知识库建议关闭。</p>
+          </div>
           <p class="helper-line">创建后可在“元数据提取”标签中配置文档头部字段的解析方式。</p>
           <div class="form-actions">
             <button type="button" class="secondary-button" data-action="close-kb-editor">取消</button>

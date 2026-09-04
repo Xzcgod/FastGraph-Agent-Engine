@@ -106,6 +106,7 @@ const elements = {
   kbNameInput: document.querySelector("#kbNameInput"),
   kbDescriptionInput: document.querySelector("#kbDescriptionInput"),
   kbStrategyInput: document.querySelector("#kbStrategyInput"),
+  kbWebFallbackInput: document.querySelector("#kbWebFallbackInput"),
   metadataExtractionForm: document.querySelector("#metadataExtractionForm"),
   metadataExtractionEnabledInput: document.querySelector("#metadataExtractionEnabledInput"),
   metadataExtractionSchemaNameInput: document.querySelector("#metadataExtractionSchemaNameInput"),
@@ -1326,6 +1327,7 @@ function openKnowledgeBaseEditor(kbId = "") {
   elements.kbNameInput.value = kb?.name || "";
   elements.kbDescriptionInput.value = kb?.description || "";
   elements.kbStrategyInput.value = kb?.searchPolicyJson?.strategy || "";
+  elements.kbWebFallbackInput.checked = Boolean(kb?.searchPolicyJson?.allowWebFallback);
   elements.kbEditorTitle.textContent = kb ? "编辑知识库" : "新建知识库";
   elements.kbEditorDrawer.classList.remove("hidden");
   window.setTimeout(() => elements.kbNameInput.focus(), 0);
@@ -1533,11 +1535,15 @@ async function handleKbSubmit(event) {
   event.preventDefault();
   const kbId = elements.kbIdInput.value;
   const strategy = elements.kbStrategyInput.value.trim();
+  const allowWebFallback = elements.kbWebFallbackInput.checked;
+  const searchPolicy = {};
+  if (strategy) searchPolicy.strategy = strategy;
+  if (allowWebFallback) searchPolicy.allowWebFallback = true;
   const payload = {
     namespace: elements.kbNamespaceInput.value,
     name: elements.kbNameInput.value.trim(),
     description: elements.kbDescriptionInput.value.trim() || null,
-    searchPolicyJson: strategy ? { strategy } : {},
+    searchPolicyJson: searchPolicy,
   };
   const path = kbId
     ? `/api/v1/admin/platform/knowledge-bases/${encodeURIComponent(kbId)}`
