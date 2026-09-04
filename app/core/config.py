@@ -221,6 +221,9 @@ class Settings:
         self.DEFAULT_LLM_MODEL = os.getenv("DEFAULT_LLM_MODEL", "deepseek-v4-pro")
         self.DEFAULT_LLM_TEMPERATURE = float(os.getenv("DEFAULT_LLM_TEMPERATURE", "0.2"))
         self.MAX_TOKENS = int(os.getenv("MAX_TOKENS", "4000"))
+        # 输入上下文预算（用于消息裁剪），与 MAX_TOKENS（生成上限）区分。
+        # 裁剪时若用 MAX_TOKENS(4000) 会把工具检索结果等长消息整条丢弃，导致 LLM 拿不到结果。
+        self.MAX_INPUT_TOKENS = int(os.getenv("MAX_INPUT_TOKENS", "30000"))
         self.MAX_LLM_CALL_RETRIES = int(os.getenv("MAX_LLM_CALL_RETRIES", "3"))
 
         # ====================================================================

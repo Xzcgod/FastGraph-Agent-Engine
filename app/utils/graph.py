@@ -224,7 +224,7 @@ def prepare_messages(
             normalized_messages,
             strategy="last",  # 保留最后的消息（最近的消息最重要）
             token_counter=get_token_count,
-            max_tokens=settings.MAX_TOKENS,
+            max_tokens=settings.MAX_INPUT_TOKENS,
             start_on="human",  # 确保结果以用户消息开始
             include_system=False,  # System Prompt 在下一步单独添加
             allow_partial=False,  # 不裁剪部分消息内容
