@@ -34,13 +34,20 @@ from services.knowledge_service.retrieval.vector import _vector_recall
 
 
 class WeightedVectorSearchStrategy:
-    """元数据加权排序：向量召回后按业务软偏好（区域/时效/产业）加分，rerank 后融合重排。"""
+    """元数据加权排序：向量召回后按业务软偏好（区域/时效/产业）加分，（可选）rerank 后融合重排。
 
-    name = "weighted"
+    实例通过 `rerank` 区分是否精排：`weighted`（不重排）与 `weighted_reranker`（重排）。
+    当策略显式指定 rerank 时覆盖请求级 rerank 布尔（算法名优先）。
+    """
+
+    def __init__(self, rerank: bool = False) -> None:
+        self.rerank = rerank
+        self.name = "weighted_reranker" if rerank else "weighted"
 
     async def search(self, session: AsyncSession, ctx: SearchContext) -> List[SearchHit]:
         if not await _has_searchable_chunk(session, ctx):
             return []
+        ctx.rerank = self.rerank
         entries = await _vector_recall(session, ctx, ctx.top_k * settings.search_oversample_factor)
         if not entries:
             return []
