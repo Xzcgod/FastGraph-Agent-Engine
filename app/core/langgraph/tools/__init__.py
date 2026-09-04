@@ -2,7 +2,7 @@
 LangGraph 工具注册中心 - 统一管理和导出所有可用工具。
 
 本模块是 LLM 工具的注册枢纽，负责：
-1. 定义基础工具列表（始终可用的工具，如 DuckDuckGo 搜索）。
+1. 定义基础工具列表（当前为空，所有工具均按 feature flag 激活）。
 2. 构建功能工具映射表（按 feature flag 名称 → 工具列表）。
 3. 处理可选依赖（如 python_repl 需要 langchain_experimental）。
 
@@ -10,7 +10,6 @@ LangGraph 工具注册中心 - 统一管理和导出所有可用工具。
 ┌────────────────────┬────────────────────────────────────────────────┐
 │ Feature Flag        │ 工具                                            │
 ├────────────────────┼────────────────────────────────────────────────┤
-│ (基础工具)           │ DuckDuckGo 搜索                                │
 │ web_search          │ AnySearch 搜索（无 Key 降级 DuckDuckGo）          │
 │ code_interpreter    │ Python REPL 代码沙盒（可选）                     │
 │ memory_tools        │ SaveMemory + SearchMemory                       │
@@ -34,18 +33,18 @@ from app.core.logging import logger
 # ============================================================================
 
 from .anysearch_search import anysearch_search_tool
-from .duckduckgo_search import duckduckgo_search_tool
 from .memory_tools import save_memory_tool, search_memory_tool
 from .email_tools import prepare_email_tool, send_email_tool
 from .rag_tool import knowledge_base_tool
 from .code_interpreter import python_repl_tool, PYTHON_REPL_AVAILABLE
 
 # ============================================================================
-# 基础工具（默认开启，始终可用）
+# 基础工具（默认为空——所有工具均按 feature flag 按需激活）
 # ============================================================================
 
-# DuckDuckGo 搜索作为基础的联网搜索能力，不依赖任何 API Key
-base_tools = [duckduckgo_search_tool]
+# 联网搜索不再常驻：只有勾选「联网服务」（web_search）时才绑定 AnySearch；
+# AnySearch 未配置 API Key 时会在其内部降级为 DuckDuckGo。
+base_tools = []
 
 # ============================================================================
 # 功能工具注册表

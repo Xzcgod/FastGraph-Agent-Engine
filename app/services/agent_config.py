@@ -346,6 +346,7 @@ class AgentConfigService:
             # Runtime 后续会用它调 LLMRegistry.get(model_name) 解析出模型实例，
             # 真正的模型解析、重试、故障切换都在 llm.py 里完成，本层只负责"点名"。
             "model_name": agent.model_name,
+            "agent_code": agent.agent_code,
             "knowledge": {
                 "kb_ids": knowledge.kb_ids,
                 "top_k": knowledge.top_k,

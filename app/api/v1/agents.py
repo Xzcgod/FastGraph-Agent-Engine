@@ -49,6 +49,7 @@ async def agent_chat_stream(
                 user_id=str(user.id),
                 agent_instructions=runtime["agent_instructions"],
                 model_name=runtime["model_name"],
+                agent_code=runtime["agent_code"],
                 knowledge=runtime["knowledge"],
             ):
                 yield chunk

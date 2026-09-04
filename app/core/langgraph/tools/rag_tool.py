@@ -12,7 +12,6 @@ from typing import Annotated, List, Optional
 from langchain_core.tools import tool
 from langgraph.prebuilt import InjectedState
 
-from app.core.config import settings
 from app.core.logging import logger
 from app.services.anysearch import anysearch_client
 from app.services.knowledge_client import knowledge_service_client
@@ -31,14 +30,17 @@ async def _search(query: str, kb_ids: List[str], top_k: int, min_score: float) -
         )
         items = payload.get("items", []) if isinstance(payload, dict) else []
         allow_web_fallback = bool(payload.get("allowWebFallback")) if isinstance(payload, dict) else False
-        top_score = float(items[0].get("score") or 0.0) if items else 0.0
-        if not items or top_score < settings.KNOWLEDGE_FALLBACK_SCORE:
-            if allow_web_fallback:
-                fallback = await _web_fallback(query)
-                if fallback:
-                    return fallback
-            if not items:
-                return "未检索到匹配知识。请如实告知用户文档中没有包含此信息。"
+
+        # 知识库开启联网兜底时，无条件联网补充（激进策略）：勾了联网就联网，
+        # 把联网结果追加在知识库结果之后，弥补「最新/时效」类检索的不足。
+        web_supplement = ""
+        if allow_web_fallback:
+            web_supplement = await _web_fallback(query) or ""
+
+        if not items:
+            if web_supplement:
+                return web_supplement
+            return "未检索到匹配知识。请如实告知用户文档中没有包含此信息。"
 
         parts = []
         for index, item in enumerate(items, start=1):
@@ -48,7 +50,10 @@ async def _search(query: str, kb_ids: List[str], top_k: int, min_score: float) -
             kb_name = item.get("kbName") or item.get("kbId") or "knowledge-base"
             excerpt = item.get("contentExcerpt") or ""
             parts.append(f"--- 片段 {index} | {kb_name} | {title} ---\n{excerpt}")
-        return "检索到的相关文档内容：\n" + "\n\n".join(parts)
+        result = "检索到的相关文档内容：\n" + "\n\n".join(parts)
+        if web_supplement:
+            result += "\n\n" + web_supplement
+        return result
     except Exception as exc:
         logger.exception("knowledge_base_search_failed", error=str(exc))
         return "检索失败：knowledge-service 当前不可用或返回异常。"
@@ -63,7 +68,7 @@ async def _web_fallback(query: str) -> str:
         return ""
     if not items:
         return ""
-    parts = [f"知识库未命中，「{query}」的联网搜索补充："]
+    parts = [f"「{query}」的联网搜索补充："]
     for index, item in enumerate(items, start=1):
         title = item.get("title") or item.get("url") or "Untitled"
         url = item.get("url") or ""
@@ -83,7 +88,7 @@ async def knowledge_base_search(
     """从平台知识库检索文档内容。
 
     当问题需要项目特定文档、业务流程或平台配置依据时优先调用此工具。
-    query 参数请用简洁关键词（如「OPC企业 扶持政策」），不要用完整问句，检索效果更好。
+    query 参数请用简洁关键词（如「OPC企业 扶持政策」），不要用完整问句；若当前问题是承接上一轮话题的追问，需把上一轮主题关键词一起带进 query（如上一轮问「小巨人」，本轮问「武汉如何申报」→ query 写「武汉 小巨人 申报」），检索效果更好。
     kb_id 可选：从「可用知识库」列表中选择一个精确的知识库；不填则检索全部已绑定知识库。
     """
     bound_ids = kb_ids or []

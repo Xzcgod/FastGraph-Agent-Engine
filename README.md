@@ -56,7 +56,7 @@ cp .env.example .env.development
 按需填入 DeepSeek API Key、Langfuse Key、邮箱授权码等，然后本地混合启动（Docker 跑基础设施，三层代码跑宿主机）：
 
 ```powershell
-scripts\start-docker.cmd   # PostgreSQL/pgvector、Ollama、Prometheus、Grafana
+scripts\start-docker.cmd   # PostgreSQL/pgvector、Prometheus、Grafana
 scripts\start-local.cmd    # knowledge-service、主后端、前端
 ```
 

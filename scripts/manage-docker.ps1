@@ -22,7 +22,11 @@ function Assert-RequiredFiles {
 }
 
 function Ensure-OllamaEmbeddingModel {
-    Write-Host "Checking Ollama embedding model..."
+    Write-Host "Starting optional local Ollama embedding and pulling model..."
+    & docker compose --env-file $EnvFile up -d ollama
+    if ($LASTEXITCODE -ne 0) {
+        throw "docker compose up ollama failed"
+    }
     & docker compose --env-file $EnvFile exec -T ollama ollama pull bge-m3
     if ($LASTEXITCODE -ne 0) {
         throw "ollama pull bge-m3 failed"
@@ -32,7 +36,7 @@ function Ensure-OllamaEmbeddingModel {
 
 function Start-DockerInfra {
     Write-Host "Starting Docker infrastructure..."
-    & docker compose --env-file $EnvFile up -d db ollama prometheus grafana cadvisor
+    & docker compose --env-file $EnvFile up -d db prometheus grafana cadvisor
     if ($LASTEXITCODE -ne 0) {
         throw "docker compose up failed"
     }

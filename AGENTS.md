@@ -44,7 +44,7 @@ LLM 网关: 深度对接 DeepSeek 官方 API 及自研的 Failover 高可用路�
 
 5. **联网搜索约定**
    - 联网搜索统一用 **AnySearch**（`app/services/anysearch.py` 客户端 + `app/core/langgraph/tools/anysearch_search.py` 工具），已移除 Tavily。API Key 经 `ANYSEARCH_API_KEY` 环境变量读取，无 Key 时工具自动降级 DuckDuckGo。
-   - 知识库检索「未命中或 top1 分低于 `KNOWLEDGE_FALLBACK_SCORE`」时联网兜底，**但由知识库级开关 `search_policy_json.allowWebFallback` 控制**（默认关闭）；`search()` 返回 `allowWebFallback` 标志，`rag_tool` 据此决定是否兜底。敏感知识库不应开启联网兜底。
+   - 知识库检索联网兜底由知识库级开关 `search_policy_json.allowWebFallback` 控制（默认关闭）：开启时 `rag_tool` 无条件联网补充，并把联网结果追加在知识库结果之后。`search()` 返回 `allowWebFallback` 标志，`rag_tool` 据此决定是否联网。敏感知识库不应开启联网兜底。
 
 6. **性能约定（已优化，勿回退）**
    - `knowledge_client` 复用持久 `httpx.AsyncClient`，**禁止每次请求新建**（否则单请求 +400ms）。
@@ -52,7 +52,7 @@ LLM 网关: 深度对接 DeepSeek 官方 API 及自研的 Failover 高可用路�
    - 服务启动时预热：主后端预热 `chatbot.initialize()`，knowledge-service 预热 embedding。
 
 7. **服务管理约定**
-   - 本地混合开发：Docker 跑基础设施（PostgreSQL/Ollama/Prometheus/Grafana），三层代码跑宿主机。
+   - 本地混合开发：Docker 跑基础设施（PostgreSQL/Prometheus/Grafana），三层代码跑宿主机；embedding 默认走外部 API（SiliconFlow），无需本地 Ollama。
    - `scripts/manage-local.cmd` 管理本地服务；停止进程用 `taskkill /F /T`（进程树杀法，处理 uvicorn reload worker 残留）。
 
 8. **目录 README 约定**
