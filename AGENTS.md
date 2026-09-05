@@ -10,7 +10,7 @@ AI Agent 二次开发规范指南 (Developer Guide)
 
 Web 框架: FastAPI (异步处理，极高并发)
 
-可观测性: Langfuse (链路追踪) + structlog (结构化日志) + Prometheus (指标采集)
+可观测性: Langfuse (链路追踪) + structlog (结构化日志)
 
 持久化: PostgreSQL + pgvector (向量搜索) + SQLModel (ORM)
 
@@ -51,7 +51,7 @@ LLM 网关: 深度对接 DeepSeek 官方 API 及自研的 Failover 高可用路�
    - 服务启动时预热：主后端预热 `chatbot.initialize()`，knowledge-service 预热 embedding。
 
 7. **服务管理约定**
-   - 本地混合开发：Docker 跑基础设施（PostgreSQL/Prometheus/Grafana），三层代码跑宿主机；embedding 默认走外部 API（SiliconFlow），无需本地 Ollama。
+   - 本地混合开发：Docker 跑基础设施（PostgreSQL/pgvector），三层代码跑宿主机；embedding 默认走外部 API（SiliconFlow），无需本地 Ollama。
    - `scripts/manage-local.cmd` 管理本地服务；停止进程用 `taskkill /F /T`（进程树杀法，处理 uvicorn reload worker 残留）。
 
 8. **目录 README 约定**

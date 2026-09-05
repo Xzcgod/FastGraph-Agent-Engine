@@ -50,7 +50,7 @@ services:
   # Development defaults to Langfuse Cloud. Start these only with:
   #   docker compose --profile local-langfuse --env-file .env.development up -d langfuse-server langfuse-worker
   # Langfuse v3 需要 postgres + clickhouse + redis + minio 四个依赖服务。
-  # Web UI 映射到宿主机 3001（3000 已被 Grafana 占用）。
+  # Web UI 映射到宿主机 3001。
   langfuse-db:
     image: postgres:16-alpine
     profiles: ["local-langfuse"]
@@ -102,7 +102,7 @@ services:
     image: ghcr.io/langfuse/langfuse:3
     profiles: ["local-langfuse"]
     ports:
-      - "3001:3000"   # 宿主机 3001，避免与 Grafana(3000) 冲突
+      - "3001:3000"   # 宿主机 3001
     environment:
       - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
       - NEXTAUTH_URL=http://localhost:3001
